@@ -167,6 +167,18 @@ impl PyKnowledgeGraph {
         Ok(dict)
     }
 
+    // ── Chunking ─────────────────────────────────────────────────
+
+    /// Split text into overlapping chunks for extraction.
+    /// Returns a list of chunk strings.
+    #[pyo3(signature = (text, chunk_size=4000, overlap=500))]
+    fn chunk_text(&self, text: &str, chunk_size: usize, overlap: usize) -> Vec<String> {
+        crate::chunker::chunk_text(text, chunk_size, overlap)
+            .into_iter()
+            .map(|c| c.text)
+            .collect()
+    }
+
     // ── Navigation ──────────────────────────────────────────────
 
     /// Lookup an entity by name. Returns JSON string or None.
