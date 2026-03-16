@@ -380,9 +380,90 @@ fn parse_extraction_result(
     })
 }
 
+// ── Claude Code Integration ─────────────────────────────────
+
+/// List available Claude Code projects.
+#[pyfunction]
+fn list_claude_projects() -> Vec<String> {
+    let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
+    let projects_dir = std::path::PathBuf::from(&home).join(".claude").join("projects");
+    let mut projects = Vec::new();
+    if let Ok(entries) = std::fs::read_dir(&projects_dir) {
+        for entry in entries.flatten() {
+            if entry.path().is_dir() {
+                let name = entry.file_name().to_string_lossy().to_string();
+                // Convert back to path: -Users-foo-bar -> /Users/foo/bar
+                let path = name.replace('-', "/");
+                let path = if path.starts_with('/') { path } else { format!("/{}", path) };
+                projects.push(path);
+            }
+        }
+    }
+    projects.sort();
+    projects
+}
+
+/// Parse Claude Code conversations for a project path.
+/// Returns a list of (session_id, message_count, text_preview) tuples.
+#[pyfunction]
+fn parse_claude_project(project_path: &str) -> Vec<(String, usize, String)> {
+    let path = std::path::Path::new(project_path);
+    let files = crate::claude_parser::find_conversations(path);
+    let mut results = Vec::new();
+
+    for file in files {
+        if let Some(conv) = crate::claude_parser::parse_conversation(&file) {
+            let preview = conv.substantive_text(200);
+            results.push((conv.session_id, conv.messages.len(), preview));
+        }
+    }
+    results
+}
+
+/// Get the full text of a Claude Code conversation, ready for KG extraction.
+#[pyfunction]
+fn get_claude_conversation_text(project_path: &str, session_id: &str, max_chars: usize) -> Option<String> {
+    let path = std::path::Path::new(project_path);
+    let files = crate::claude_parser::find_conversations(path);
+
+    for file in files {
+        let filename = file.file_name()
+            .and_then(|f| f.to_str())
+            .unwrap_or("");
+        if filename.contains(session_id) {
+            if let Some(conv) = crate::claude_parser::parse_conversation(&file) {
+                return Some(conv.substantive_text(max_chars));
+            }
+        }
+    }
+    None
+}
+
+/// Get ALL conversation texts for a project, concatenated.
+#[pyfunction]
+fn get_all_claude_conversations(project_path: &str, max_chars_per_conv: usize) -> Vec<(String, String)> {
+    let path = std::path::Path::new(project_path);
+    let files = crate::claude_parser::find_conversations(path);
+    let mut results = Vec::new();
+
+    for file in files {
+        if let Some(conv) = crate::claude_parser::parse_conversation(&file) {
+            let text = conv.substantive_text(max_chars_per_conv);
+            if !text.is_empty() {
+                results.push((conv.session_id, text));
+            }
+        }
+    }
+    results
+}
+
 /// PyO3 module definition.
 #[pymodule]
 fn autoclaw(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyKnowledgeGraph>()?;
+    m.add_function(wrap_pyfunction!(list_claude_projects, m)?)?;
+    m.add_function(wrap_pyfunction!(parse_claude_project, m)?)?;
+    m.add_function(wrap_pyfunction!(get_claude_conversation_text, m)?)?;
+    m.add_function(wrap_pyfunction!(get_all_claude_conversations, m)?)?;
     Ok(())
 }

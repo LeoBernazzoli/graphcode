@@ -1,4 +1,5 @@
 pub mod chunker;
+pub mod claude_parser;
 pub mod graph;
 pub mod model;
 pub mod prompt;
