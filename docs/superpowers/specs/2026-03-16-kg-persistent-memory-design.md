@@ -60,6 +60,32 @@ Claude resumes with:
   - CLAUDE.md (reloaded from disk)
 ```
 
+### How the PreCompact hook accesses data
+
+The PreCompact hook receives JSON on stdin with `transcript_path` — the full path to the session's JSONL file. The subagent:
+
+1. Reads the JSONL file using the existing `claude_parser.rs` parser (already handles user/assistant/tool_use messages)
+2. Reads the existing KG via `autoclaw export` (JSON dump of all entities/relations)
+3. Passes both to the extraction prompt
+
+The transcript JSONL is **append-only** — even after compaction, all original messages remain in the file. A `compact_boundary` entry marks where previous compactions occurred. The subagent should only process messages **after the last `compact_boundary`** (or all messages if no boundary exists), to avoid re-extracting already-processed facts.
+
+### How the focus string reaches `autoclaw context`
+
+The PreCompact subagent, as its final step, writes the current task summary to a known location:
+
+```bash
+autoclaw set-focus --project $CWD "fixing fuzzy matching in resolver.rs"
+```
+
+This stores the focus string inside the `.kg` file itself (as graph metadata, not a temp file). The SessionStart hook then reads it:
+
+```bash
+autoclaw context --budget 2000 --project $CWD
+```
+
+The `context` command reads the stored focus internally. No temp files, no race conditions.
+
 ### Why not MCP?
 
 MCP servers have well-documented problems:
@@ -121,11 +147,23 @@ enum ImportanceTier {
     Minor,        // weight 0.3, λ = 0.05
 }
 
-// Added fields to Node:
-// tier: ImportanceTier
-// superseded_by: Option<NodeId>
-// last_referenced: DateTime (for future boost mechanics)
+// Added fields to Node (all with #[serde(default)] for backward compat):
+// tier: ImportanceTier          — defaults to Significant
+// superseded_by: Option<NodeId> — defaults to None
+// last_referenced: DateTime     — defaults to created_at
 ```
+
+### Serialization Compatibility
+
+New fields use `#[serde(default)]` so existing `.kg` files (VERSION 1) deserialize without errors. Defaults: `tier: Significant`, `superseded_by: None`, `last_referenced: created_at`. No version bump needed — the format is additive.
+
+### Supersession Matching
+
+The `reconcile` command uses **strict exact-match** (case-insensitive, trimmed) for supersession targets — NOT the fuzzy `lookup()` method. If no exact match is found, the supersession is recorded as an error in the output (not silently skipped). This prevents accidental invalidation of wrong nodes.
+
+### Garbage Collection Strategy
+
+GC does NOT delete nodes. Instead, it marks them as `archived: true` (excluded from queries and context output). This avoids adjacency index invalidation and preserves the audit trail. Archived nodes can still be found via `autoclaw export --include-archived`.
 
 ## New CLI Commands
 
@@ -166,8 +204,9 @@ Reads JSON from stdin, reconciles with existing KG.
 1. Ingest new facts with tier and timestamp
 2. For each `supersedes`: mark old fact as `superseded_by: new_id`
 3. Apply promotions (tier changes)
-4. Garbage collect: remove facts with `relevance < 0.05`
-5. Save .kg
+4. Garbage collect: archive facts with `relevance < 0.05` (mark as archived, not deleted)
+5. Store focus string (current task summary) in KG metadata
+6. Save .kg
 
 **Output:**
 
@@ -207,13 +246,16 @@ RECENT (max 500 tokens):
   (last 3-5 days by timestamp)
 ```
 
+**Token counting:** Uses `chars / 4` heuristic for token estimation (sufficient for budget enforcement; exact tokenizer not needed since budget is approximate).
+
 **Internal operations:**
 
-1. Compute `relevance` for all non-superseded facts
-2. Query neighbors of `--focus` entities
-3. Fill budget tiers in order: ALWAYS → CONTEXTUAL → RECENT
-4. Format as markdown sections
-5. Truncate to budget, output to stdout
+1. Read stored focus string from KG metadata (set by `reconcile`)
+2. Compute `relevance` for all non-superseded, non-archived facts
+3. Query neighbors of focus entities
+4. Fill budget tiers in order: ALWAYS → CONTEXTUAL → RECENT
+5. Format as markdown sections
+6. Truncate to budget, output to stdout
 
 **Output example:**
 
@@ -282,6 +324,10 @@ For each extracted fact, check if it already exists in the KG:
 ## Timeline
 Order facts chronologically. For each fact indicate approximate position
 in the conversation (start/middle/end).
+
+## Limits
+Extract at most 20 facts per compaction. Prioritize higher-tier items.
+Promotions can only go up one level: minor → significant, significant → critical.
 
 ## Output format
 Produce valid JSON:
@@ -354,7 +400,7 @@ autoclaw-plugin/
         "hooks": [
           {
             "type": "command",
-            "command": "autoclaw context --budget 2000 --focus \"$(cat /tmp/autoclaw-last-summary.txt 2>/dev/null || echo '')\" --project $CWD"
+            "command": "autoclaw context --budget 2000 --project $CWD"
           }
         ]
       }
@@ -397,6 +443,5 @@ Rule: the extraction prompt explicitly excludes user preferences and behavioral 
 
 - Exact λ values for decay need calibration with real usage
 - Should `autoclaw context` also consider the current git branch/diff for relevance?
-- How to handle the focus string extraction from the minimal summary (regex? first line?)
-- Should GC archive facts to cold storage or delete permanently?
 - Budget allocation ratios (500/1000/500) may need tuning
+- Should `autoclaw reconcile` support `--dry-run` for testing extraction quality?
