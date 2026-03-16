@@ -180,12 +180,17 @@ impl Ontology {
     }
 
     /// Check if an edge type is valid.
+    /// "mentions" is always valid (system-level type for orphan connection).
     pub fn is_valid_edge_type(&self, type_name: &str) -> bool {
+        let name_lower = type_name.to_lowercase();
+        if name_lower == "mentions" {
+            return true;
+        }
         if self.edge_types.is_empty() {
             return true;
         }
         self.edge_types
             .iter()
-            .any(|t| t.name.to_lowercase() == type_name.to_lowercase())
+            .any(|t| t.name.to_lowercase() == name_lower)
     }
 }

@@ -264,6 +264,23 @@ impl PyKnowledgeGraph {
     fn get_ontology(&self) -> String {
         serde_json::to_string(&self.inner.ontology).unwrap_or_else(|_| "{}".into())
     }
+
+    /// Connect orphan nodes by scanning definitions for entity mentions.
+    /// Returns the number of new connections created.
+    fn connect_orphans(&mut self) -> usize {
+        self.inner.connect_orphans()
+    }
+
+    /// Discover implicit connections across ALL nodes by scanning definitions.
+    /// Returns the number of new connections created.
+    fn discover_connections(&mut self) -> usize {
+        self.inner.discover_connections()
+    }
+
+    /// Get graph quality metrics as JSON string.
+    fn quality_metrics(&self) -> String {
+        serde_json::to_string(&self.inner.quality_metrics()).unwrap_or_else(|_| "{}".into())
+    }
 }
 
 /// Parse the agent's JSON response into an ExtractionResult.
@@ -276,11 +293,20 @@ fn parse_extraction_result(
 
     if let Some(ent_array) = parsed.get("entities").and_then(|v| v.as_array()) {
         for e in ent_array {
+            // Use evidence_text if provided, otherwise use definition as evidence
             let evidence_text = e.get("evidence_text")
                 .and_then(|v| v.as_str())
                 .unwrap_or("");
+            let definition = e.get("definition")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            let best_evidence = if !evidence_text.is_empty() {
+                evidence_text
+            } else {
+                definition
+            };
 
-            let evidence = if !evidence_text.is_empty() {
+            let evidence = if !best_evidence.is_empty() {
                 vec![Evidence {
                     document: match default_source {
                         Source::Document { name, .. } => name.clone(),
@@ -290,7 +316,7 @@ fn parse_extraction_result(
                         Source::Document { page, .. } => *page,
                         _ => None,
                     },
-                    text_snippet: evidence_text.to_string(),
+                    text_snippet: best_evidence.to_string(),
                     offset_start: 0,
                     offset_end: 0,
                 }]

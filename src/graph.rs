@@ -61,6 +61,18 @@ pub struct PathResult {
     pub length: usize,
 }
 
+/// Graph quality metrics.
+#[derive(Debug, Clone, Serialize)]
+pub struct QualityMetrics {
+    pub total_nodes: usize,
+    pub total_edges: usize,
+    pub orphan_count: usize,
+    pub orphan_ratio: f64,
+    pub related_to_ratio: f64,
+    pub avg_degree: f64,
+    pub documents: usize,
+}
+
 /// Graph statistics.
 #[derive(Debug, Clone, Serialize)]
 pub struct GraphStats {
@@ -587,6 +599,157 @@ impl KnowledgeGraph {
         }
 
         report
+    }
+
+    // ── Graph Maintenance ────────────────────────────────────────
+
+    /// Connect orphan nodes by scanning their definitions for mentions
+    /// of other entities. Creates "mentions" edges with lower confidence.
+    /// Returns the number of new connections created.
+    pub fn connect_orphans(&mut self) -> usize {
+        // Find orphans (nodes with no edges)
+        let mut connected: std::collections::HashSet<NodeId> = std::collections::HashSet::new();
+        for edge in &self.edges {
+            connected.insert(edge.from);
+            connected.insert(edge.to);
+        }
+        let orphan_ids: Vec<NodeId> = self.nodes.keys()
+            .filter(|id| !connected.contains(id))
+            .copied()
+            .collect();
+
+        if orphan_ids.is_empty() {
+            return 0;
+        }
+
+        // Build a lookup of all entity names -> node IDs (excluding orphans being processed)
+        let all_names: Vec<(String, NodeId)> = self.nodes.iter()
+            .map(|(id, n)| (n.name.clone(), *id))
+            .collect();
+
+        let mut new_edges: Vec<Edge> = Vec::new();
+
+        for &orphan_id in &orphan_ids {
+            let orphan = match self.nodes.get(&orphan_id) {
+                Some(n) => n.clone(),
+                None => continue,
+            };
+            let def_lower = orphan.definition.to_lowercase();
+            if def_lower.is_empty() {
+                continue;
+            }
+
+            for (name, target_id) in &all_names {
+                if *target_id == orphan_id {
+                    continue;
+                }
+                let name_lower = name.to_lowercase();
+                // Skip very short names (< 4 chars) to avoid false matches
+                if name_lower.len() < 4 {
+                    continue;
+                }
+                if def_lower.contains(&name_lower) {
+                    new_edges.push(Edge::new(
+                        0,
+                        orphan_id,
+                        *target_id,
+                        "mentions".to_string(),
+                        0.6,
+                        orphan.source.clone(),
+                    ));
+                }
+            }
+        }
+
+        let mut count = 0;
+        for edge in new_edges {
+            if self.add_edge(edge).is_ok() {
+                count += 1;
+            }
+        }
+        count
+    }
+
+    /// Discover implicit connections by scanning ALL node definitions
+    /// for mentions of other entities. Creates "mentions" edges with
+    /// confidence 0.5. Only creates edges that don't already exist.
+    /// Returns the number of new connections.
+    pub fn discover_connections(&mut self) -> usize {
+        // Collect all entity names with their IDs (min 4 chars to avoid noise)
+        let name_entries: Vec<(String, NodeId)> = self.nodes.iter()
+            .filter(|(_, n)| n.name.len() >= 4)
+            .map(|(id, n)| (n.name.to_lowercase(), *id))
+            .collect();
+
+        let mut new_edges: Vec<(NodeId, NodeId)> = Vec::new();
+
+        for (node_id, node) in &self.nodes {
+            let def_lower = node.definition.to_lowercase();
+            if def_lower.len() < 10 {
+                continue;
+            }
+
+            for (name_lower, target_id) in &name_entries {
+                if target_id == node_id {
+                    continue;
+                }
+                // Check if name appears as a whole word in the definition
+                if def_lower.contains(name_lower.as_str()) {
+                    // Verify it's not already connected
+                    let already = self.edges.iter().any(|e| {
+                        (e.from == *node_id && e.to == *target_id)
+                            || (e.from == *target_id && e.to == *node_id)
+                    });
+                    if !already {
+                        new_edges.push((*node_id, *target_id));
+                    }
+                }
+            }
+        }
+
+        let mut count = 0;
+        for (from, to) in new_edges {
+            let source = self.nodes.get(&from)
+                .map(|n| n.source.clone())
+                .unwrap_or(Source::Inferred);
+            let edge = Edge::new(0, from, to, "mentions".to_string(), 0.5, source);
+            if self.add_edge(edge).is_ok() {
+                count += 1;
+            }
+        }
+        count
+    }
+
+    /// Get graph quality metrics.
+    pub fn quality_metrics(&self) -> QualityMetrics {
+        let total_nodes = self.nodes.len();
+        let mut connected: std::collections::HashSet<NodeId> = std::collections::HashSet::new();
+        for edge in &self.edges {
+            connected.insert(edge.from);
+            connected.insert(edge.to);
+        }
+        let orphan_count = total_nodes - connected.len();
+
+        let related_to_count = self.edges.iter()
+            .filter(|e| e.relation_type.to_lowercase() == "related_to")
+            .count();
+        let total_edges = self.edges.len();
+
+        let avg_degree = if total_nodes > 0 {
+            (total_edges as f64 * 2.0) / total_nodes as f64
+        } else {
+            0.0
+        };
+
+        QualityMetrics {
+            total_nodes,
+            total_edges,
+            orphan_count,
+            orphan_ratio: if total_nodes > 0 { orphan_count as f64 / total_nodes as f64 } else { 0.0 },
+            related_to_ratio: if total_edges > 0 { related_to_count as f64 / total_edges as f64 } else { 0.0 },
+            avg_degree,
+            documents: self.documents.len(),
+        }
     }
 
     // ── Stats ───────────────────────────────────────────────────
