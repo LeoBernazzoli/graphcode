@@ -38,24 +38,94 @@ impl Conversation {
         text
     }
 
-    /// Get only the substantive messages (skip very short ones).
+    /// Get substantive text optimized for KG extraction.
+    /// Prioritizes user messages (decisions, requests) over assistant output.
+    /// Truncates long assistant messages. Samples across the full conversation.
     pub fn substantive_text(&self, max_chars: usize) -> String {
-        let mut text = String::new();
+        // Build condensed messages: keep all user messages, truncate assistant messages
+        let mut condensed: Vec<(String, String)> = Vec::new(); // (role, text)
+
         for msg in &self.messages {
-            if text.len() >= max_chars {
-                break;
-            }
-            // Skip very short messages (greetings, "ok", "si", etc.)
-            if msg.content.len() < 20 {
+            if msg.content.len() < 15 {
                 continue;
             }
-            let prefix = if msg.role == "user" { "User" } else { "Assistant" };
-            text.push_str(&format!("[{}]: {}\n\n", prefix, msg.content));
+            if msg.role == "user" {
+                // Keep user messages fully (they contain decisions)
+                condensed.push(("User".to_string(), msg.content.clone()));
+            } else {
+                // Truncate assistant messages to first 300 chars (key info is at the start)
+                let truncated = if msg.content.len() > 300 {
+                    let mut end = 300;
+                    while end > 0 && !msg.content.is_char_boundary(end) {
+                        end -= 1;
+                    }
+                    format!("{}...", &msg.content[..end])
+                } else {
+                    msg.content.clone()
+                };
+                condensed.push(("Assistant".to_string(), truncated));
+            }
         }
+
+        if condensed.is_empty() {
+            return String::new();
+        }
+
+        // Check if everything fits
+        let total: usize = condensed.iter().map(|(r, t)| r.len() + t.len() + 10).sum();
+        if total <= max_chars {
+            return condensed.iter()
+                .map(|(r, t)| format!("[{}]: {}\n\n", r, t))
+                .collect();
+        }
+
+        // Sample: 20% start, 40% middle, 40% end (recent work matters more)
+        let n = condensed.len();
+        let mut text = String::new();
+        let sections = [
+            (0, n / 5, max_chars / 5),                    // start: 20%
+            (n * 2 / 5, n * 3 / 5, max_chars * 2 / 5),   // middle: 40%
+            (n * 4 / 5, n, max_chars * 2 / 5),            // end: 40%
+        ];
+
+        for (start, end, budget) in &sections {
+            let section_start = text.len();
+            if *start > 0 {
+                text.push_str("\n[...]\n\n");
+            }
+            for (role, content) in &condensed[*start..*end] {
+                if text.len() - section_start >= *budget {
+                    break;
+                }
+                text.push_str(&format!("[{}]: {}\n\n", role, content));
+            }
+        }
+
+        // Safe truncate
         if text.len() > max_chars {
-            text.truncate(max_chars);
+            let mut end = max_chars;
+            while end > 0 && !text.is_char_boundary(end) {
+                end -= 1;
+            }
+            text.truncate(end);
         }
         text
+    }
+
+    /// Check if this conversation is automated (e.g., from `claude -p` calls).
+    pub fn is_automated(&self) -> bool {
+        // Automated conversations typically have exactly 2 messages
+        // and the user message starts with extraction/analysis prompts
+        if self.messages.len() <= 2 {
+            if let Some(first) = self.messages.first() {
+                let content = first.content.to_lowercase();
+                return content.starts_with("extract entities")
+                    || content.starts_with("analyze this text")
+                    || content.starts_with("read and follow")
+                    || content.contains("return only a valid json");
+            }
+        }
+        false
     }
 }
 
