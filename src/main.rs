@@ -32,6 +32,24 @@ fn main() {
         }
         "recent" => cmd_recent(&kg_path),
         "export" => cmd_export(&kg_path),
+        "file-context" => {
+            if args.len() < 3 {
+                eprintln!("Usage: autoclaw file-context <file_path> [--budget N]");
+                std::process::exit(1);
+            }
+            let file_path = &args[2];
+            let budget: usize = args
+                .iter()
+                .position(|a| a == "--budget")
+                .and_then(|i| args.get(i + 1))
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(300);
+            let kg = load_kg(&kg_path);
+            let output = autoclaw::file_context::file_context(&kg, file_path, budget);
+            if !output.is_empty() {
+                print!("{}", output);
+            }
+        }
         "relevant" => {
             if args.len() < 3 {
                 eprintln!("Usage: autoclaw relevant <query> [--budget N]");
