@@ -3,6 +3,7 @@ pub mod claude_parser;
 pub mod graph;
 pub mod model;
 pub mod prompt;
+#[cfg(feature = "python")]
 pub mod python;
 pub mod resolver;
 pub mod storage;
