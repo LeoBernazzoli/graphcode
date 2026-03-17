@@ -32,6 +32,40 @@ fn main() {
         }
         "recent" => cmd_recent(&kg_path),
         "export" => cmd_export(&kg_path),
+        "impact" => {
+            if args.len() < 3 {
+                eprintln!("Usage: autoclaw impact <entity_name> [--depth N]");
+                std::process::exit(1);
+            }
+            let entity_name = &args[2];
+            let depth: usize = args
+                .iter()
+                .position(|a| a == "--depth")
+                .and_then(|i| args.get(i + 1))
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(1);
+            let kg = load_kg(&kg_path);
+            let report = autoclaw::impact::impact_analysis(&kg, entity_name, depth);
+            print!("{}", report);
+        }
+        "impact-from-diff" => {
+            if args.len() < 3 {
+                eprintln!("Usage: autoclaw impact-from-diff <tool_input_json>");
+                std::process::exit(1);
+            }
+            let tool_input = &args[2];
+            let depth: usize = args
+                .iter()
+                .position(|a| a == "--depth")
+                .and_then(|i| args.get(i + 1))
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(1);
+            let kg = load_kg(&kg_path);
+            let report = autoclaw::impact::impact_from_diff(&kg, tool_input, depth);
+            if !report.is_empty() {
+                print!("{}", report);
+            }
+        }
         "reindex" => {
             if args.len() < 3 {
                 eprintln!("Usage: autoclaw reindex <file_path>");

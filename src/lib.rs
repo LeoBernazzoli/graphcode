@@ -1,6 +1,7 @@
 pub mod chunker;
 pub mod context;
 pub mod file_context;
+pub mod impact;
 pub mod monitor;
 pub mod reconcile;
 pub mod relevant;
