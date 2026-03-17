@@ -300,19 +300,35 @@ fn print_usage() {
 
 Usage: autoclaw <command> [args]
 
-Commands:
-  stats                  Show graph statistics
-  topics                 Show main knowledge topics
-  explore <name>         Explore an entity and its connections
-  connect <a> <b>        Find path between two entities
-  recent                 Show recently added entities
-  export                 Export graph as JSON
-  context [budget]       Generate context for re-injection (default budget: 2000 tokens)
+Navigation:
+  stats                          Show graph statistics
+  topics                         Show main knowledge topics
+  explore <name>                 Explore an entity and its connections
+  connect <a> <b>                Find path between two entities
+  recent                         Show recently added entities
+  export                         Export graph as JSON
+
+Context (used by Claude Code hooks):
+  context [budget]               Generate ranked context for re-injection
+  relevant <query> [--budget N]  Find facts relevant to a text query
+  file-context <path> [--budget] Get KG knowledge about a specific file
+
+Impact analysis:
+  impact <entity> [--depth N]    Show all references + breaking changes
+  impact-from-diff <json>        Impact analysis from an Edit/Write diff
+
+Ingestion:
+  bootstrap [--config path]      Full project indexing (code + conversations)
+  reindex <file_path>            Re-parse a single file with tree-sitter
+  reconcile                      Merge extraction JSON from stdin into KG
+  snapshot <transcript> [opts]   Heuristic extraction from transcript
+
+Monitoring:
+  monitor <transcript> [opts]    Check context usage against threshold
+  tick <transcript> [opts]       Combined monitor + periodic snapshot
 
 Environment:
-  AUTOCLAW_KG            Path to .kg file (default: ./knowledge.kg)
-
-The primary interface is the Python SDK. The CLI is for inspection and debugging."#
+  AUTOCLAW_KG                    Path to .kg file (default: ./knowledge.kg)"#
     );
 }
 
