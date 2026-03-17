@@ -1,4 +1,6 @@
+pub mod bootstrap;
 pub mod chunker;
+pub mod config;
 pub mod context;
 pub mod file_context;
 pub mod impact;

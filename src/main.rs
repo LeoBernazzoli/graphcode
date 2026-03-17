@@ -32,6 +32,39 @@ fn main() {
         }
         "recent" => cmd_recent(&kg_path),
         "export" => cmd_export(&kg_path),
+        "bootstrap" => {
+            let config_path = args
+                .iter()
+                .position(|a| a == "--config")
+                .and_then(|i| args.get(i + 1))
+                .map(|s| s.as_str())
+                .unwrap_or("graphocode.toml");
+
+            let config = autoclaw::config::load_config(std::path::Path::new(config_path));
+            let mut kg = load_kg(&kg_path);
+
+            let project_path = std::env::current_dir().unwrap_or_else(|_| ".".into());
+            let report = autoclaw::bootstrap::bootstrap(&mut kg, &config, &project_path);
+
+            autoclaw::save(&kg, kg_path.as_path()).unwrap_or_else(|e| {
+                eprintln!("Failed to save: {}", e);
+                std::process::exit(1);
+            });
+
+            println!("Bootstrap complete:");
+            println!("  Files indexed: {}", report.files_indexed);
+            println!("  Code entities: {}", report.code_entities);
+            println!("  Conversations found: {}", report.conversations_found);
+            println!("  Document chunks: {}", report.document_chunks.len());
+
+            if !report.conversation_texts.is_empty() {
+                println!(
+                    "\n{} conversations ready for Haiku semantic extraction.",
+                    report.conversation_texts.len()
+                );
+                println!("Run /graphocode:start to complete extraction with LLM.");
+            }
+        }
         "impact" => {
             if args.len() < 3 {
                 eprintln!("Usage: autoclaw impact <entity_name> [--depth N]");
