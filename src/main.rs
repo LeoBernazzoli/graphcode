@@ -32,6 +32,45 @@ fn main() {
         }
         "recent" => cmd_recent(&kg_path),
         "export" => cmd_export(&kg_path),
+        "monitor" => {
+            if args.len() < 3 {
+                eprintln!("Usage: autoclaw monitor <transcript_path> [--threshold N] [--window N]");
+                std::process::exit(1);
+            }
+            let transcript = &args[2];
+            let threshold: u64 = args
+                .iter()
+                .position(|a| a == "--threshold")
+                .and_then(|i| args.get(i + 1))
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(85);
+            let window: u64 = args
+                .iter()
+                .position(|a| a == "--window")
+                .and_then(|i| args.get(i + 1))
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(200000);
+
+            match autoclaw::monitor::check_context_usage(
+                std::path::Path::new(transcript),
+                threshold,
+                window,
+            ) {
+                Ok(result) => {
+                    println!(
+                        r#"{{"used_pct":{},"used_tokens":{},"window_size":{},"should_extract":{}}}"#,
+                        result.used_pct, result.used_tokens, result.window_size, result.should_extract
+                    );
+                    if result.should_extract {
+                        std::process::exit(1);
+                    }
+                }
+                Err(e) => {
+                    eprintln!("Monitor error: {}", e);
+                    std::process::exit(0); // Don't block on error
+                }
+            }
+        }
         "file-context" => {
             if args.len() < 3 {
                 eprintln!("Usage: autoclaw file-context <file_path> [--budget N]");
