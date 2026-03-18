@@ -15,6 +15,8 @@ pub fn find_relevant(kg: &KnowledgeGraph, query: &str, budget: usize) -> String 
     }
 
     // Score each node by keyword matches in name + definition
+    // Semantic facts (Decision, TechnicalFact, ErrorResolution) get a boost
+    // Imports and test functions get penalized
     let mut matches: Vec<(f64, &str, &str, &str)> = Vec::new();
     for node in kg.all_nodes() {
         let name_lower = node.name.to_lowercase();
@@ -29,6 +31,19 @@ pub fn find_relevant(kg: &KnowledgeGraph, query: &str, budget: usize) -> String 
             }
         }
         if score > 0.0 {
+            // Boost semantic facts — these are the most valuable for understanding
+            match node.node_type.as_str() {
+                "Decision" | "TechnicalFact" | "ErrorResolution" => score += 10.0,
+                "Function" | "Method" | "Struct" | "Enum" => {
+                    // Penalize test functions — they're noise for context
+                    if name_lower.starts_with("test_") {
+                        score *= 0.1;
+                    }
+                }
+                "Import" => score *= 0.05, // Imports are almost never useful as context
+                "Field" => score *= 0.3,   // Fields are moderately useful
+                _ => {}
+            }
             matches.push((score, &node.name, &node.node_type, &node.definition));
         }
     }
