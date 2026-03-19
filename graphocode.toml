@@ -1,5 +1,5 @@
 [sources]
-code = ["**/*.rs"]
+code = ["**/*.rs", "**/*.py", "**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx", "**/*.go", "**/*.java", "**/*.cs"]
 conversations = true
 documents = []
 

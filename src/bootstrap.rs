@@ -1,3 +1,31 @@
+/// Check if a file path is inside a dependency/build directory that should be skipped.
+fn is_dependency_path(path: &str) -> bool {
+    let skip_dirs = [
+        "/node_modules/",
+        "/.next/",
+        "/dist/",
+        "/build/",
+        "/target/",
+        "/__pycache__/",
+        "/.venv/",
+        "/venv/",
+        "/env/",
+        "/.git/",
+        "/vendor/",
+        "/.tox/",
+        "/site-packages/",
+        "/.mypy_cache/",
+        "/.pytest_cache/",
+        "/coverage/",
+        "/.nuxt/",
+        "/.output/",
+        "/out/",
+        "/.svelte-kit/",
+        "/packages/node_modules/",
+    ];
+    skip_dirs.iter().any(|dir| path.contains(dir))
+}
+
 use crate::chunker;
 use crate::claude_parser;
 use crate::config::GraphocodeConfig;
@@ -22,25 +50,35 @@ pub fn bootstrap_code(kg: &mut KnowledgeGraph, config: &GraphocodeConfig) -> (us
     let mut files = 0;
     let mut entities = 0;
 
-    // First pass: add all entities (definitions)
-    let mut file_list: Vec<(String, String)> = Vec::new(); // (path, code)
-    for pattern in &config.sources.code {
-        if let Ok(paths) = glob::glob(pattern) {
-            for entry in paths.flatten() {
-                let path_str = entry.to_string_lossy().to_string();
-                if !path_str.ends_with(".rs") {
-                    continue;
-                }
-                if let Ok(code) = std::fs::read_to_string(&entry) {
-                    file_list.push((path_str, code));
-                }
-            }
+    // Collect all source files using ignore::Walk (respects .gitignore, skips node_modules etc.)
+    let supported_extensions = ["rs", "py", "ts", "tsx", "js", "jsx", "go", "java", "cs"];
+    let mut file_list: Vec<(String, String)> = Vec::new();
+
+    for entry in ignore::Walk::new(".") {
+        let entry = match entry {
+            Ok(e) => e,
+            Err(_) => continue,
+        };
+        let path = entry.path();
+        if !path.is_file() {
+            continue;
+        }
+        let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
+        if !supported_extensions.contains(&ext) {
+            continue;
+        }
+        let path_str = path.to_string_lossy().to_string();
+        if is_dependency_path(&path_str) {
+            continue;
+        }
+        if let Ok(code) = std::fs::read_to_string(path) {
+            file_list.push((path_str, code));
         }
     }
 
     // Pass 1: definitions only (so all entities exist before we resolve references)
     for (path_str, code) in &file_list {
-        let parsed = treesitter::parse_rust_code(code, path_str);
+        let (parsed, _) = treesitter::parse_file(code, path_str);
         entities += parsed.len();
         for entity in parsed {
             let mut node = Node::new(
@@ -61,7 +99,7 @@ pub fn bootstrap_code(kg: &mut KnowledgeGraph, config: &GraphocodeConfig) -> (us
 
     // Pass 2: references (now all entities exist, so lookup works)
     for (path_str, code) in &file_list {
-        let (_, references) = treesitter::parse_rust_code_v2(code, path_str);
+        let (_, references) = treesitter::parse_file(code, path_str);
 
         // Create file-level node
         let file_node_name = path_str.to_string();
