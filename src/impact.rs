@@ -157,7 +157,14 @@ pub fn impact_from_diff_v2(kg: &KnowledgeGraph, tool_input: &str) -> String {
         Err(_) => return String::new(),
     };
 
-    let old_string = v
+    // Support both hook format (tool_input nested) and direct format (old_string at root)
+    let input = if v.get("tool_input").is_some() {
+        v.get("tool_input").unwrap().clone()
+    } else {
+        v.clone()
+    };
+
+    let old_string = input
         .get("old_string")
         .and_then(|s| s.as_str())
         .unwrap_or("");
@@ -201,9 +208,11 @@ pub fn impact_from_diff_v2(kg: &KnowledgeGraph, tool_input: &str) -> String {
     let patterns = crate::patterns::group_by_pattern(&all_refs);
     let report = crate::patterns::format_impact_report(&entity_label, &patterns);
 
-    // Output as additionalContext JSON
+    // Output as hookSpecificOutput JSON for PreToolUse hook
     serde_json::json!({
         "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "permissionDecision": "allow",
             "additionalContext": report
         }
     })
@@ -469,6 +478,35 @@ mod tests {
                 .unwrap();
             assert!(ctx.contains("IMPACT"), "Report: {}", ctx);
             assert!(ctx.contains("PATTERNS"), "Report: {}", ctx);
+        }
+    }
+
+    #[test]
+    fn test_impact_from_diff_v2_hook_format() {
+        // Test with the format that Claude Code hooks send (tool_input nested)
+        let mut kg = KnowledgeGraph::new();
+        kg.reindex_file_v2("src/model.rs", "pub struct Node { pub confidence: f32 }");
+        kg.reindex_file_v2("src/graph.rs", "fn r(n: Node) { let c = n.confidence; }");
+
+        let hook_input = r#"{
+            "session_id": "abc123",
+            "hook_event_name": "PreToolUse",
+            "tool_name": "Edit",
+            "tool_input": {
+                "file_path": "src/model.rs",
+                "old_string": "pub confidence: f32",
+                "new_string": "pub certainty: f32"
+            }
+        }"#;
+
+        let output = impact_from_diff_v2(&kg, hook_input);
+        if !output.is_empty() {
+            let json: serde_json::Value = serde_json::from_str(&output)
+                .expect(&format!("Should be valid JSON: {}", output));
+            assert!(
+                json.pointer("/hookSpecificOutput/additionalContext").is_some(),
+                "Should have additionalContext for hook format"
+            );
         }
     }
 }
