@@ -5,7 +5,17 @@
         "hooks": [
           {
             "type": "command",
-            "command": "autoclaw context 300 2>/dev/null || true"
+            "command": "autoclaw context 500 2>/dev/null || echo 'No KG found. Run autoclaw bootstrap to index the project.'"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "PROMPT=$(jq -r '.prompt // empty') && [ -n \"$PROMPT\" ] && autoclaw relevant \"$PROMPT\" --budget 300 2>/dev/null || true"
           }
         ]
       }

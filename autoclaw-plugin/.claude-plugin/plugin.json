@@ -1,5 +1,9 @@
 {
   "name": "graphocode",
-  "version": "0.1.0",
-  "description": "Knowledge graph memory for Claude Code — replaces lossy compression with structured, persistent project memory with impact analysis"
+  "description": "Knowledge graph for your codebase — gives Claude structural awareness of every function, class, field, and their dependencies. Prevents breaking code across files.",
+  "version": "0.2.0",
+  "author": "Leo Bernazzoli",
+  "repository": "https://github.com/leobernazzoli/autoclaw",
+  "license": "Apache-2.0",
+  "keywords": ["knowledge-graph", "code-analysis", "impact-analysis", "context-engineering"]
 }

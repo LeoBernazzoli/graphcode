@@ -1,25 +1,15 @@
-# Graphocode Plugin v2
+# Graphocode
 
-Knowledge graph engine with complete reference graph. Context delivered via auto-generated `.claude/rules/` — not hook injection.
+This project has a knowledge graph with every function, class, field, and their cross-file dependencies indexed.
 
-## How it works
-- SessionStart: `autoclaw sync-rules` generates `.claude/rules/` from KG
-- PreToolUse(Edit|Write): impact analysis with pattern-grouped report (additionalContext JSON)
-- PostToolUse(Edit|Write): `autoclaw reindex` updates reference graph
-- Stop: `autoclaw snapshot` extracts decisions from transcript
+Before modifying code: the PreToolUse hook automatically shows which files depend on what you're changing.
 
-## Commands
-- `/graphocode:start` — Bootstrap: index all code + conversations
-- `/graphocode:query <entity>` — Query the KG
-- `/graphocode:impact <entity>` — Impact analysis before modifications
-- `/graphocode:decide <decision>` — Record a decision
+When working on a file: `.claude/rules/` has path-specific context that loads automatically with dependency counts.
 
-## CLI
-- `autoclaw sync-rules` — Regenerate .claude/rules/ from KG
-- `autoclaw impact <entity>` — Show all references + breaking changes
-- `autoclaw bootstrap` — Full project indexing
-- `autoclaw explore <entity>` — Navigate the KG
+For manual queries:
+- `autoclaw impact <entity>` — what depends on this entity
+- `autoclaw explore <entity>` — navigate the knowledge graph
+- `autoclaw stats` — overview of the codebase graph
 
 ## Compact Instructions
 Minimal summary: current task and last step only. One line.
-Project context comes from the knowledge graph via .claude/rules/.

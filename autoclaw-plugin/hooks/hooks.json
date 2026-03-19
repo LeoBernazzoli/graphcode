@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "autoclaw sync-rules 2>/dev/null || true"
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/setup.sh\" 2>/dev/null || true"
           }
         ]
       }
@@ -16,7 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "autoclaw impact-from-diff 2>/dev/null || true"
+            "command": "autoclaw impact-from-diff 2>/dev/null || \"${CLAUDE_PLUGIN_DATA}/bin/autoclaw\" impact-from-diff 2>/dev/null || true"
           }
         ]
       }
@@ -27,7 +27,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "FILE_PATH=$(cat | jq -r '.tool_input.file_path // empty' 2>/dev/null) && [ -n \"$FILE_PATH\" ] && autoclaw reindex \"$FILE_PATH\" 2>/dev/null || true"
+            "command": "FILE_PATH=$(cat | jq -r '.tool_input.file_path // empty' 2>/dev/null) && [ -n \"$FILE_PATH\" ] && (autoclaw reindex \"$FILE_PATH\" 2>/dev/null || \"${CLAUDE_PLUGIN_DATA}/bin/autoclaw\" reindex \"$FILE_PATH\" 2>/dev/null) || true"
           }
         ]
       }
@@ -37,7 +37,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "autoclaw snapshot \"$TRANSCRIPT_PATH\" --all-since-last 2>/dev/null || true"
+            "command": "(autoclaw snapshot \"$TRANSCRIPT_PATH\" --all-since-last 2>/dev/null || \"${CLAUDE_PLUGIN_DATA}/bin/autoclaw\" snapshot \"$TRANSCRIPT_PATH\" --all-since-last 2>/dev/null) || true"
           }
         ]
       }
