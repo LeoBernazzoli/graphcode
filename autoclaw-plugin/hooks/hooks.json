@@ -16,7 +16,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "autoclaw impact-from-diff 2>/dev/null || \"${CLAUDE_PLUGIN_DATA}/bin/autoclaw\" impact-from-diff 2>/dev/null || true"
+            "command": "timeout 3 autoclaw impact-from-diff 2>/dev/null || true",
+            "timeout": 5000
           }
         ]
       }

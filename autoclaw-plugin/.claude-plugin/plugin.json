@@ -1,7 +1,7 @@
 {
   "name": "graphcode",
   "description": "Knowledge graph for your codebase — gives Claude structural awareness of every function, class, field, and their dependencies. Prevents breaking code across files.",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "author": {
     "name": "Leo Bernazzoli"
   },
