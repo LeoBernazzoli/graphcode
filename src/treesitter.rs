@@ -187,8 +187,55 @@ fn extract_entity_universal(
                     ("Function", true)
                 }
             }
-            "class_definition" => ("Struct", true), // map class → Struct for uniformity
+            "class_definition" => ("Struct", true),
             "import_statement" | "import_from_statement" => ("Import", true),
+            // Class/module-level assignments: MAX_RETRIES = 3, API_KEY = "secret"
+            "expression_statement" => {
+                // Only extract if direct child of class_body or module (not inside a function)
+                let parent_kind = node.parent().map(|p| p.kind()).unwrap_or("");
+                let is_class_or_module_level = parent_kind == "block" && {
+                    // Check grandparent: should be class_definition or module
+                    node.parent()
+                        .and_then(|p| p.parent())
+                        .map(|gp| gp.kind() == "class_definition" || gp.kind() == "module")
+                        .unwrap_or(false)
+                } || parent_kind == "module";
+
+                if !is_class_or_module_level {
+                    ("", false) // Skip assignments inside methods
+                } else {
+                    let first_child = node.child(0);
+                    if let Some(child) = first_child {
+                        if child.kind() == "assignment" {
+                            // Skip self.x = ... assignments
+                            let left = child.child_by_field_name("left")
+                                .map(|n| node_text(&n, source))
+                                .unwrap_or("");
+                            if left.starts_with("self.") {
+                                ("", false)
+                            } else if parent_type.is_some() {
+                                ("Field", true)
+                            } else {
+                                ("Const", true)
+                            }
+                        } else if child.kind() == "type" {
+                            ("Field", true)
+                        } else {
+                            ("", false)
+                        }
+                    } else {
+                        ("", false)
+                    }
+                }
+            }
+            // Type-annotated fields: name: str, email: str = "default"
+            "typed_parameter" | "typed_default_parameter" => {
+                if parent_type.is_some() {
+                    ("Field", true)
+                } else {
+                    ("", false)
+                }
+            }
             _ => ("", false),
         },
         LangStyle::TypeScript | LangStyle::JavaScript => match kind {
@@ -199,10 +246,23 @@ fn extract_entity_universal(
             "interface_declaration" => ("Trait", true),
             "enum_declaration" => ("Enum", true),
             "type_alias_declaration" => ("Struct", true),
+            // Class fields: private db: Database, public timeout: number
+            "public_field_definition" | "field_definition" => ("Field", true),
+            // Enum members: Active = "active"
+            // (handled via parent enum, but we can extract individual members)
             "lexical_declaration" => {
-                // const/let at top level
-                if parent_type.is_none() && node_text(node, source).starts_with("const") {
+                // const at top level or class level
+                let text = node_text(node, source);
+                if text.starts_with("const") {
                     ("Const", true)
+                } else {
+                    ("", false)
+                }
+            }
+            // Interface properties: id: number, name: string
+            "property_signature" => {
+                if parent_type.is_some() {
+                    ("Field", true)
                 } else {
                     ("", false)
                 }
@@ -249,6 +309,49 @@ fn extract_entity_universal(
 
     let name = if entity_type == "Import" {
         node_text(node, source).trim().to_string()
+    } else if kind == "expression_statement" {
+        // Python: extract name from assignment target
+        // e.g. "MAX_RETRIES = 3" → "MAX_RETRIES", "name: str" → "name"
+        let first_child = node.child(0);
+        if let Some(child) = first_child {
+            if child.kind() == "assignment" {
+                // assignment → left is the target
+                child.child_by_field_name("left")
+                    .map(|n| node_text(&n, source).to_string())
+                    .unwrap_or_default()
+            } else if child.kind() == "type" {
+                // type annotation: name: str
+                let mut cursor = child.walk();
+                child.children(&mut cursor)
+                    .find(|c| c.kind() == "identifier")
+                    .map(|c| node_text(&c, source).to_string())
+                    .unwrap_or_default()
+            } else {
+                String::new()
+            }
+        } else {
+            String::new()
+        }
+    } else if kind == "lexical_declaration" {
+        // TypeScript/JS: const MAX = 3 → extract from variable_declarator
+        let mut cursor = node.walk();
+        node.children(&mut cursor)
+            .find(|c| c.kind() == "variable_declarator")
+            .and_then(|vd| vd.child_by_field_name("name"))
+            .map(|n| node_text(&n, source).to_string())
+            .unwrap_or_default()
+    } else if kind == "property_signature" || kind == "public_field_definition" || kind == "field_definition" {
+        // TS interface/class fields: name might be the first child identifier
+        node.child_by_field_name("name")
+            .map(|n| node_text(&n, source).to_string())
+            .or_else(|| {
+                // Fallback: look for property_identifier or identifier
+                let mut cursor = node.walk();
+                node.children(&mut cursor)
+                    .find(|c| c.kind() == "property_identifier" || c.kind() == "identifier")
+                    .map(|c| node_text(&c, source).to_string())
+            })
+            .unwrap_or_default()
     } else {
         node.child_by_field_name("name")
             .map(|n| node_text(&n, source).to_string())
@@ -268,9 +371,20 @@ fn extract_entity_universal(
         return;
     }
 
+    // Prefix field names with parent type (like Rust Node.confidence)
+    let name = if entity_type == "Field" && parent_type.is_some() {
+        format!("{}.{}", parent_type.unwrap(), name)
+    } else {
+        name
+    };
+
     let sig = first_line(node_text(node, source)).trim().to_string();
-    let def = if let Some(t) = parent_type {
-        format!("{}::{} — {}", t, name, sig)
+    let def = if entity_type != "Field" {
+        if let Some(t) = parent_type {
+            format!("{}::{} — {}", t, name, sig)
+        } else {
+            sig
+        }
     } else {
         sig
     };
