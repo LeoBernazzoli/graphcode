@@ -67,6 +67,59 @@ fn main() {
             eprintln!("  {} nodes, {} edges", stats.node_count, stats.edge_count);
             eprintln!("  {} rule files (path-specific, 96% adherence)", rule_count);
             eprintln!();
+            // Build fast index for hooks
+            let idx_path = kg_path.with_extension("idx");
+            // Re-run the build-index logic inline
+            {
+                let mut refs: std::collections::HashMap<String, (String, usize, std::collections::HashSet<String>)> =
+                    std::collections::HashMap::new();
+                for node in kg.all_nodes() {
+                    if matches!(node.node_type.as_str(), "Function" | "Method" | "Struct" | "Field" | "Enum" | "Trait" | "Const") {
+                        let name = if node.name.contains('.') {
+                            node.name.split('.').last().unwrap_or(&node.name).to_string()
+                        } else {
+                            node.name.clone()
+                        };
+                        if name.len() >= 3 {
+                            refs.entry(name).or_insert_with(|| (node.node_type.clone(), 0, std::collections::HashSet::new()));
+                        }
+                    }
+                }
+                for node in kg.all_nodes() {
+                    let name = if node.name.contains('.') {
+                        node.name.split('.').last().unwrap_or(&node.name).to_string()
+                    } else {
+                        node.name.clone()
+                    };
+                    let inbound = kg.inbound_reference_count(&node.name);
+                    if inbound > 0 {
+                        if let Some(entry) = refs.get_mut(&name) {
+                            entry.1 = entry.1.max(inbound);
+                        }
+                        let references = kg.references_to(&node.name);
+                        for r in &references {
+                            let file = std::path::Path::new(&r.source_file)
+                                .file_name()
+                                .and_then(|f| f.to_str())
+                                .unwrap_or(&r.source_file);
+                            if let Some(entry) = refs.get_mut(&name) {
+                                entry.2.insert(file.to_string());
+                            }
+                        }
+                    }
+                }
+                let mut lines = Vec::new();
+                for (name, (etype, count, files)) in &refs {
+                    if *count > 0 {
+                        let files_str: String = files.iter().take(10).cloned().collect::<Vec<_>>().join(",");
+                        lines.push(format!("{}|{}|{}|{}", name, etype, count, files_str));
+                    }
+                }
+                lines.sort();
+                std::fs::write(&idx_path, lines.join("\n")).ok();
+                eprintln!("  Built fast index: {} entries", lines.len());
+            }
+
             eprintln!("Open Claude Code and start working. The knowledge graph is active.");
         }
         "sync-rules" => {
@@ -129,6 +182,139 @@ fn main() {
             let kg = load_kg(&kg_path);
             let report = autoclaw::impact::impact_analysis(&kg, entity_name, depth);
             print!("{}", report);
+        }
+        "build-index" => {
+            let kg = load_kg(&kg_path);
+            let idx_path = kg_path.with_extension("idx");
+            let mut lines = Vec::new();
+
+            // Build: entity_name → (type, ref_count, files)
+            let mut refs: std::collections::HashMap<String, (String, usize, std::collections::HashSet<String>)> =
+                std::collections::HashMap::new();
+
+            for node in kg.all_nodes() {
+                if matches!(node.node_type.as_str(), "Function" | "Method" | "Struct" | "Field" | "Enum" | "Trait" | "Const") {
+                    let name = if node.name.contains('.') {
+                        node.name.split('.').last().unwrap_or(&node.name).to_string()
+                    } else {
+                        node.name.clone()
+                    };
+                    if name.len() >= 3 {
+                        refs.entry(name).or_insert_with(|| (node.node_type.clone(), 0, std::collections::HashSet::new()));
+                    }
+                }
+            }
+
+            for edge in &kg.stats().edge_types {
+                // We need to iterate edges directly
+            }
+            // Iterate edges via neighbors for each entity
+            for node in kg.all_nodes() {
+                let name = if node.name.contains('.') {
+                    node.name.split('.').last().unwrap_or(&node.name).to_string()
+                } else {
+                    node.name.clone()
+                };
+                let inbound = kg.inbound_reference_count(&node.name);
+                if inbound > 0 {
+                    if let Some(entry) = refs.get_mut(&name) {
+                        entry.1 = entry.1.max(inbound);
+                    }
+                    // Get referring files
+                    let references = kg.references_to(&node.name);
+                    for r in &references {
+                        let file = std::path::Path::new(&r.source_file)
+                            .file_name()
+                            .and_then(|f| f.to_str())
+                            .unwrap_or(&r.source_file);
+                        if let Some(entry) = refs.get_mut(&name) {
+                            entry.2.insert(file.to_string());
+                        }
+                    }
+                }
+            }
+
+            for (name, (etype, count, files)) in &refs {
+                if *count > 0 {
+                    let files_str: String = files.iter().take(10).cloned().collect::<Vec<_>>().join(",");
+                    lines.push(format!("{}|{}|{}|{}", name, etype, count, files_str));
+                }
+            }
+            lines.sort();
+            std::fs::write(&idx_path, lines.join("\n")).unwrap_or_else(|e| {
+                eprintln!("Failed to write index: {}", e);
+                std::process::exit(1);
+            });
+            eprintln!("Index built: {} entries → {}", lines.len(), idx_path.display());
+        }
+        "quick-impact" => {
+            // Fast impact analysis using .idx file (no KG load)
+            let idx_path = kg_path.with_extension("idx");
+            let tool_input = if args.len() >= 3 {
+                args[2].clone()
+            } else {
+                let mut input = String::new();
+                std::io::Read::read_to_string(&mut std::io::stdin(), &mut input)
+                    .unwrap_or_default();
+                input
+            };
+
+            let v: serde_json::Value = match serde_json::from_str(&tool_input) {
+                Ok(v) => v,
+                Err(_) => std::process::exit(0),
+            };
+
+            let input = if v.get("tool_input").is_some() {
+                v.get("tool_input").unwrap().clone()
+            } else {
+                v.clone()
+            };
+
+            let old_string = input.get("old_string").and_then(|s| s.as_str()).unwrap_or("");
+            if old_string.is_empty() {
+                std::process::exit(0);
+            }
+
+            // Read index file
+            let idx_content = match std::fs::read_to_string(&idx_path) {
+                Ok(c) => c,
+                Err(_) => {
+                    eprintln!("No index file. Run: autoclaw build-index");
+                    std::process::exit(0);
+                }
+            };
+
+            // Find entities mentioned in old_string
+            let mut hits = Vec::new();
+            for line in idx_content.lines() {
+                let parts: Vec<&str> = line.splitn(4, '|').collect();
+                if parts.len() >= 4 {
+                    let name = parts[0];
+                    if name.len() >= 3 && old_string.contains(name) {
+                        hits.push((name.to_string(), parts[1].to_string(), parts[2].to_string(), parts[3].to_string()));
+                    }
+                }
+            }
+
+            if hits.is_empty() {
+                std::process::exit(0);
+            }
+
+            // Build report
+            let mut report = String::new();
+            for (name, etype, count, files) in &hits {
+                report.push_str(&format!("⚠️ {}: {} refs in {}\n", name, count, files));
+            }
+
+            // Output as hookSpecificOutput JSON
+            let output = serde_json::json!({
+                "hookSpecificOutput": {
+                    "hookEventName": "PreToolUse",
+                    "permissionDecision": "allow",
+                    "additionalContext": report
+                }
+            });
+            print!("{}", output);
         }
         "impact-from-diff" => {
             // V2: reads tool input from stdin (for hook compatibility) or args
