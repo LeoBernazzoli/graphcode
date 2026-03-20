@@ -252,7 +252,8 @@ pub fn bootstrap_code(kg: &mut KnowledgeGraph, config: &GraphocodeConfig) -> (us
 
 /// Extract module name from an import statement.
 fn extract_module_from_import(import_text: &str, _current_file: &str) -> String {
-    let text = import_text.trim();
+    // Use only first line for multiline imports
+    let text = import_text.lines().next().unwrap_or("").trim();
 
     // Python: "from models import User" → "models"
     if text.starts_with("from ") {
@@ -387,10 +388,23 @@ fn resolve_import_to_file(
     // Global suffix search: find any file ending with the module path
     let suffix_py = format!("{}.py", module_path);
     let suffix_ts = format!("{}.ts", module_path);
+    let suffix_tsx = format!("{}.tsx", module_path);
     let suffix_rs = format!("{}.rs", module_path);
+    let suffix_init = format!("{}/__init__.py", module_path); // Python packages
+    let suffix_index_ts = format!("{}/index.ts", module_path); // TS packages
+    let suffix_index_js = format!("{}/index.js", module_path); // JS packages
+    let suffix_mod_rs = format!("{}/mod.rs", module_path); // Rust modules
     for file in all_files {
         let f = file.trim_start_matches("./");
-        if f.ends_with(&suffix_py) || f.ends_with(&suffix_ts) || f.ends_with(&suffix_rs) {
+        if f.ends_with(&suffix_py)
+            || f.ends_with(&suffix_ts)
+            || f.ends_with(&suffix_tsx)
+            || f.ends_with(&suffix_rs)
+            || f.ends_with(&suffix_init)
+            || f.ends_with(&suffix_index_ts)
+            || f.ends_with(&suffix_index_js)
+            || f.ends_with(&suffix_mod_rs)
+        {
             return Some(file.clone());
         }
     }
