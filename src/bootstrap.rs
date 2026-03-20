@@ -97,7 +97,51 @@ pub fn bootstrap_code(kg: &mut KnowledgeGraph, config: &GraphocodeConfig) -> (us
         files += 1;
     }
 
-    // Pass 2: references (now all entities exist, so lookup works)
+    // Pass 2: Build import map + tiered reference resolution
+    //
+    // Inspired by GitNexus: resolve references using import tracking
+    // Tier 1: same file (confidence 0.95)
+    // Tier 2: import-scoped — target defined in a file we import (confidence 0.9)
+    // Tier 3: global — search all files (confidence 0.5, only for unique matches)
+
+    // 2a. Build import map: file → set of files it imports from
+    let mut import_map: std::collections::HashMap<String, std::collections::HashSet<String>> =
+        std::collections::HashMap::new();
+
+    let all_files_set: std::collections::HashSet<String> =
+        file_list.iter().map(|(p, _)| p.clone()).collect();
+
+    for (path_str, _code) in &file_list {
+        // Find Import entities from this file
+        let imports: Vec<String> = kg
+            .all_nodes()
+            .filter(|n| {
+                n.node_type == "Import"
+                    && matches!(&n.source, Source::CodeAnalysis { file }
+                        if file.trim_start_matches("./") == path_str.trim_start_matches("./"))
+            })
+            .map(|n| n.name.clone())
+            .collect();
+
+        let mut imported_files = std::collections::HashSet::new();
+        for imp in &imports {
+            // Extract module name from import statement
+            // Python: "from models import User" → "models"
+            // Python: "import os" → "os"
+            // TS/JS: "import { X } from './models'" → "./models"
+            // Rust: "use crate::model::Node" → "model"
+            let module_name = extract_module_from_import(imp, path_str);
+            if let Some(resolved) = resolve_import_to_file(&module_name, path_str, &all_files_set)
+            {
+                imported_files.insert(resolved);
+            }
+        }
+        if !imported_files.is_empty() {
+            import_map.insert(path_str.clone(), imported_files);
+        }
+    }
+
+    // 2b. Create file nodes and resolve references with tier system
     for (path_str, code) in &file_list {
         let (_, references) = treesitter::parse_file(code, path_str);
 
@@ -120,13 +164,65 @@ pub fn bootstrap_code(kg: &mut KnowledgeGraph, config: &GraphocodeConfig) -> (us
             kg.add_node(fnode).unwrap_or(0)
         };
 
-        // Add reference edges
+        let imported_files = import_map.get(path_str.as_str());
+
         for reference in references {
-            let target_id_opt = kg.lookup(&reference.target_name).map(|n| n.id).or_else(|| {
-                let suffix = format!(".{}", reference.target_name);
-                kg.all_nodes().find(|n| n.name.ends_with(&suffix)).map(|n| n.id)
+            let target_name = &reference.target_name;
+            let suffix = format!(".{}", target_name);
+
+            // Tier 1: same file — exact match in this file
+            let tier1 = kg.all_nodes().find(|n| {
+                let in_file = matches!(&n.source, Source::CodeAnalysis { file }
+                    if file.trim_start_matches("./") == path_str.trim_start_matches("./"));
+                in_file
+                    && n.node_type != "File"
+                    && n.node_type != "Import"
+                    && (n.name == *target_name || n.name.ends_with(&suffix))
             });
-            if let Some(target_id) = target_id_opt {
+
+            // Tier 2: import-scoped — defined in a file we import
+            let tier2 = if tier1.is_none() {
+                if let Some(imp_files) = imported_files {
+                    kg.all_nodes().find(|n| {
+                        let in_imported = matches!(&n.source, Source::CodeAnalysis { file } if {
+                            let f = file.trim_start_matches("./");
+                            imp_files.iter().any(|imp| imp.trim_start_matches("./") == f)
+                        });
+                        in_imported
+                            && n.node_type != "File"
+                            && n.node_type != "Import"
+                            && (n.name == *target_name || n.name.ends_with(&suffix))
+                    })
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+
+            // Tier 3: global — unique match across all files (skip if ambiguous)
+            let tier3 = if tier1.is_none() && tier2.is_none() && target_name.len() >= 4 {
+                let matches: Vec<_> = kg
+                    .all_nodes()
+                    .filter(|n| {
+                        n.node_type != "File"
+                            && n.node_type != "Import"
+                            && (n.name == *target_name || n.name.ends_with(&suffix))
+                    })
+                    .collect();
+                if matches.len() == 1 {
+                    Some(matches[0])
+                } else {
+                    None // Ambiguous — skip
+                }
+            } else {
+                None
+            };
+
+            let target_node = tier1.or(tier2).or(tier3);
+
+            if let Some(target) = target_node {
+                let target_id = target.id;
                 if file_node_id != 0 && file_node_id != target_id {
                     let ref_type_str = match reference.ref_type {
                         treesitter::RefType::Calls => "calls",
@@ -152,6 +248,154 @@ pub fn bootstrap_code(kg: &mut KnowledgeGraph, config: &GraphocodeConfig) -> (us
     }
 
     (files, entities)
+}
+
+/// Extract module name from an import statement.
+fn extract_module_from_import(import_text: &str, _current_file: &str) -> String {
+    let text = import_text.trim();
+
+    // Python: "from models import User" → "models"
+    if text.starts_with("from ") {
+        if let Some(module) = text.strip_prefix("from ") {
+            if let Some(idx) = module.find(" import") {
+                return module[..idx].trim().to_string();
+            }
+        }
+    }
+
+    // Python: "import os" → "os"
+    if text.starts_with("import ") {
+        return text
+            .strip_prefix("import ")
+            .unwrap_or("")
+            .split(',')
+            .next()
+            .unwrap_or("")
+            .trim()
+            .to_string();
+    }
+
+    // TS/JS: "import { X } from './models'" or "import X from 'module'"
+    if text.contains("from ") {
+        if let Some(from_part) = text.split("from ").last() {
+            return from_part
+                .trim()
+                .trim_matches(|c| c == '\'' || c == '"' || c == ';')
+                .to_string();
+        }
+    }
+
+    // Rust: "use crate::model::Node" → "model"
+    if text.starts_with("use ") {
+        let parts: Vec<&str> = text
+            .strip_prefix("use ")
+            .unwrap_or("")
+            .trim_end_matches(';')
+            .split("::")
+            .collect();
+        if parts.len() >= 2 {
+            // Skip "crate", "self", "super"
+            for part in &parts {
+                let p = part.trim();
+                if p != "crate" && p != "self" && p != "super" && !p.is_empty() {
+                    return p.to_string();
+                }
+            }
+        }
+    }
+
+    text.to_string()
+}
+
+/// Resolve a module name to a file path.
+fn resolve_import_to_file(
+    module_name: &str,
+    current_file: &str,
+    all_files: &std::collections::HashSet<String>,
+) -> Option<String> {
+    if module_name.is_empty() {
+        return None;
+    }
+
+    let current_dir = std::path::Path::new(current_file)
+        .parent()
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_default();
+
+    // Relative import: ./models, ../utils, .module
+    let is_relative = module_name.starts_with('.') || module_name.starts_with("./");
+
+    if is_relative {
+        let clean = module_name
+            .trim_start_matches("./")
+            .trim_start_matches('.');
+        let base = if current_dir.is_empty() {
+            clean.to_string()
+        } else {
+            format!("{}/{}", current_dir, clean)
+        };
+
+        // Try extensions
+        for ext in &[".py", ".ts", ".tsx", ".js", ".jsx", ".rs", ".go", ".java", ".cs"] {
+            let candidate = format!("{}{}", base, ext);
+            if all_files.contains(&candidate) {
+                return Some(candidate);
+            }
+            // Try with ./ prefix
+            let candidate2 = format!("./{}{}", base.trim_start_matches("./"), ext);
+            if all_files.contains(&candidate2) {
+                return Some(candidate2);
+            }
+        }
+        // Try as directory with index
+        for idx in &["index.ts", "index.js", "index.tsx", "__init__.py", "mod.rs"] {
+            let candidate = format!("{}/{}", base, idx);
+            if all_files.contains(&candidate) {
+                return Some(candidate);
+            }
+            let candidate2 = format!("./{}/{}", base.trim_start_matches("./"), idx);
+            if all_files.contains(&candidate2) {
+                return Some(candidate2);
+            }
+        }
+    }
+
+    // Bare module: try proximity (same directory first, like Python)
+    let module_path = module_name.replace('.', "/");
+
+    // Same directory
+    if !current_dir.is_empty() {
+        for ext in &[".py", ".ts", ".tsx", ".js", ".jsx", ".rs", ".go", ".java", ".cs"] {
+            let candidate = format!("{}/{}{}", current_dir, module_path, ext);
+            if all_files.contains(&candidate) {
+                return Some(candidate);
+            }
+            let candidate2 = format!("./{}/{}{}", current_dir.trim_start_matches("./"), module_path, ext);
+            if all_files.contains(&candidate2) {
+                return Some(candidate2);
+            }
+        }
+        // Package directory
+        for idx in &["__init__.py", "index.ts", "index.js", "mod.rs"] {
+            let candidate = format!("{}/{}/{}", current_dir, module_path, idx);
+            if all_files.contains(&candidate) {
+                return Some(candidate);
+            }
+        }
+    }
+
+    // Global suffix search: find any file ending with the module path
+    let suffix_py = format!("{}.py", module_path);
+    let suffix_ts = format!("{}.ts", module_path);
+    let suffix_rs = format!("{}.rs", module_path);
+    for file in all_files {
+        let f = file.trim_start_matches("./");
+        if f.ends_with(&suffix_py) || f.ends_with(&suffix_ts) || f.ends_with(&suffix_rs) {
+            return Some(file.clone());
+        }
+    }
+
+    None
 }
 
 /// CHANNEL 2: Parse all Claude Code conversations. Deterministic parsing (0 tokens).
