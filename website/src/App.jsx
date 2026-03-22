@@ -3,9 +3,8 @@ import Navbar from './components/Navbar'
 import Hero from './components/Hero'
 import Problem from './components/Problem'
 import Solution from './components/Solution'
-import Outcome from './components/Outcome'
 import HowItWorks from './components/HowItWorks'
-import Closing from './components/Closing'
+import Outcome from './components/Outcome'
 
 function App() {
   return (
@@ -15,10 +14,9 @@ function App() {
         <Hero />
         <Problem />
         <Solution />
-        <Outcome />
         <HowItWorks />
+        <Outcome />
       </main>
-      <Closing />
     </div>
   )
 }

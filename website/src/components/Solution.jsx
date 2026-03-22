@@ -3,91 +3,171 @@ import { motion } from 'framer-motion';
 
 const Solution = () => {
   return (
-    <section id="solution" style={{ padding: 0 }}>
-      {/* Feature 1: Persistent Memory */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', minHeight: '600px', borderBottom: '1px solid var(--border-color)' }}>
-        <div style={{ padding: '80px 100px', display: 'flex', flexDirection: 'column', justifyContent: 'center', borderRight: '1px solid var(--border-color)' }}>
-           <h3 
-             style={{ fontSize: '40px', fontWeight: '600', letterSpacing: '-0.03em', marginBottom: '24px', lineHeight: 1.15 }}
-             className="text-gradient"
-           >
-             Persistent memory <br /> across sessions.
-           </h3>
-           <p style={{ fontSize: '18px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-             Keep track of architectural decisions, project state, and conversation history. Stop re-explaining context and never start from scratch again.
-           </p>
-        </div>
-        
-        {/* SVG UI Mockup for Memory */}
-        <div style={{ background: '#0a0a0c', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', position: 'relative' }}>
-          {/* Subtle glow underneath */}
-          <div style={{ position: 'absolute', width: '300px', height: '300px', background: 'rgba(255,255,255,0.03)', filter: 'blur(100px)' }} />
-          
-          <div style={{ width: '400px', height: '300px', background: '#000', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 40px rgba(0,0,0,0.5)', zIndex: 1 }}>
-            <div style={{ padding: '16px', borderBottom: '1px solid rgba(255,255,255,0.05)', fontSize: '12px', color: 'var(--text-secondary)', display: 'flex', justifyContent: 'space-between' }}>
-              <span>Context Engine</span>
-              <span style={{ color: '#27c93f' }}>Active</span>
-            </div>
-            <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-               <div style={{ padding: '12px', background: 'rgba(255,255,255,0.03)', border: '1px dashed rgba(255,255,255,0.1)', borderRadius: '6px' }}>
-                  <div style={{ fontSize: '12px', color: '#fff', marginBottom: '4px' }}>Session A (Yesterday)</div>
-                  <div style={{ fontSize: '12px', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>Decided: using standard CSS, no Tailwind.</div>
-               </div>
-               <svg height="20" width="100%">
-                  <path d="M 20 0 L 20 20" stroke="rgba(255,255,255,0.2)" strokeWidth="2" strokeDasharray="4 4" />
-                  <polygon points="16,20 24,20 20,28" fill="rgba(255,255,255,0.2)" />
-               </svg>
-               <div style={{ padding: '12px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '6px' }}>
-                  <div style={{ fontSize: '12px', color: '#fff', marginBottom: '4px' }}>Session B (Today)</div>
-                  <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)', fontFamily: 'monospace' }}>Context injected successfully.</div>
-               </div>
-            </div>
-          </div>
-        </div>
+    <section className="dynamic-section border-b" id="solution">
+      
+      {/* ===================== ENGINE 01: PERSISTENT MEMORY ===================== */}
+      <div style={{ gridColumn: '1 / 6', padding: '15vh 4vw', display: 'flex', flexDirection: 'column', justifyContent: 'center', zIndex: 10 }} className="border-r border-b">
+         <motion.div 
+            initial={{ opacity: 0, y: 10 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
+            className="white-badge" style={{ marginBottom: '2vh' }}
+         >
+           ENGINE 01
+         </motion.div>
+         <motion.h2 
+           initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
+           className="large-type" style={{ fontSize: '3vw' }}
+         >
+           Persistent Memory Store
+         </motion.h2>
+         <motion.p 
+           initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.1 }}
+           className="sub-type" style={{ maxWidth: '100%' }}
+         >
+           Keep track of project state across sessions and never start from zero again. A deterministic vector graph of your architectural decisions flowing continuously into your AI's context window.
+         </motion.p>
       </div>
 
-      {/* Feature 2: Code Understanding */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', minHeight: '600px', borderBottom: '1px solid var(--border-color)' }}>
-        {/* SVG UI Mockup for Code Understanding */}
-        <div style={{ background: '#0a0a0c', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', position: 'relative', borderRight: '1px solid var(--border-color)' }}>
-          <div style={{ position: 'absolute', width: '300px', height: '300px', background: 'rgba(255,255,255,0.03)', filter: 'blur(100px)' }} />
+      <div style={{ gridColumn: '6 / 13', background: '#040405', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '70vh', position: 'relative', overflow: 'hidden' }} className="border-b">
+          <div className="noise-overlay" />
+          <div style={{ position: 'absolute', width: '300px', height: '300px', background: 'radial-gradient(circle, rgba(255,255,255,0.03) 0%, transparent 60%)', filter: 'blur(30px)' }} />
           
-          <div style={{ width: '400px', height: '300px', background: '#000', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 40px rgba(0,0,0,0.5)', zIndex: 1 }}>
-            <div style={{ padding: '16px', borderBottom: '1px solid rgba(255,255,255,0.05)', fontSize: '12px', color: 'var(--text-secondary)' }}>
-              Dependency Graph
-            </div>
-            <div style={{ flex: 1, position: 'relative' }}>
-               <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
-                 {/* Tree structure */}
-                 <polyline points="200,40 200,80 100,80 100,120" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="1" />
-                 <polyline points="200,80 300,80 300,120" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="1" />
-                 
-                 {/* Nodes */}
-                 <rect x="150" y="20" width="100" height="30" rx="4" fill="rgba(255,255,255,0.1)" stroke="rgba(255,255,255,0.2)" />
-                 <text x="200" y="39" fill="#fff" fontSize="12" textAnchor="middle" fontFamily="monospace">App.jsx</text>
+          <svg width="100%" height="100%" viewBox="0 0 800 500" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">
+            <defs>
+               <filter id="softGlow1" x="-20%" y="-20%" width="140%" height="140%">
+                 <feGaussianBlur stdDeviation="3" result="blur" />
+                 <feComposite in="SourceGraphic" in2="blur" operator="over" />
+               </filter>
+            </defs>
 
-                 <rect x="50" y="120" width="100" height="30" rx="4" fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.1)" />
-                 <text x="100" y="139" fill="var(--text-secondary)" fontSize="12" textAnchor="middle" fontFamily="monospace">Header.tsx</text>
+            {/* Continuous Horizontal Data Streams */}
+            {[100, 200, 300, 400].map((y, i) => (
+              <g key={`stream-${i}`}>
+                {/* Static Background Rail */}
+                <line x1="50" y1={y} x2="750" y2={y} stroke="rgba(255,255,255,0.05)" strokeWidth="1" strokeDasharray="4 4" />
+                
+                {/* Infinite Flowing Data Packet */}
+                <motion.line 
+                  x1="50" y1={y} x2="750" y2={y} 
+                  stroke="#8B5CF6" strokeWidth="2" filter="url(#softGlow1)"
+                  strokeDasharray="60 1000"
+                  animate={{ strokeDashoffset: [-100, 1000] }}
+                  transition={{ repeat: Infinity, duration: 4 + (i*0.5), ease: "linear", delay: i*0.3 }}
+                />
+                
+                {/* Infinitely Pulsating Intersection Nodes */}
+                <motion.circle cx="400" cy={y} r="6" fill="#040405" stroke="rgba(255,255,255,0.2)" strokeWidth="1" />
+                <motion.circle 
+                  cx="400" cy={y} r="3" fill="#fff" 
+                  animate={{ scale: [1, 2, 1], opacity: [0.3, 1, 0.3] }}
+                  transition={{ repeat: Infinity, duration: 2, delay: i*0.5, ease: "easeInOut" }}
+                />
 
-                 <rect x="250" y="120" width="100" height="30" rx="4" fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.1)" />
-                 <text x="300" y="139" fill="var(--text-secondary)" fontSize="12" textAnchor="middle" fontFamily="monospace">utils.ts</text>
-               </svg>
-            </div>
-          </div>
-        </div>
+                {/* Looping Memory Labels */}
+                <text x="50" y={y - 8} fill="var(--text-secondary)" fontSize="10" fontFamily="monospace">DATA_LANE_0{i+1}</text>
+                <motion.text 
+                  x="700" y={y - 8} fill="#27c93f" fontSize="10" fontFamily="monospace"
+                  animate={{ opacity: [0, 1, 0] }}
+                  transition={{ repeat: Infinity, duration: 2, delay: i*0.2 }}
+                >
+                  [ACTIVE]
+                </motion.text>
+              </g>
+            ))}
 
-        <div style={{ padding: '80px 100px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-           <h3 
-             style={{ fontSize: '40px', fontWeight: '600', letterSpacing: '-0.03em', marginBottom: '24px', lineHeight: 1.15 }}
-             className="text-gradient"
-           >
-             Structural code <br /> understanding.
-           </h3>
-           <p style={{ fontSize: '18px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-             Ground generation purely in files, symbols, definitions, and dependencies. AI edits code by understanding what breaks, instead of guessing blindly.
-           </p>
-        </div>
+            <motion.rect 
+               x="370" y="60" width="60" height="380" rx="8" 
+               fill="rgba(255,255,255,0.02)" stroke="rgba(255,255,255,0.1)" strokeWidth="1"
+               animate={{ borderColor: ["rgba(255,255,255,0.1)", "rgba(255,255,255,0.3)", "rgba(255,255,255,0.1)"] }}
+               transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
+            />
+         </svg>
       </div>
+
+      {/* ===================== ENGINE 02: STRUCTURAL AST ===================== */}
+      <div style={{ gridColumn: '1 / 8', background: '#040405', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '70vh', position: 'relative', overflow: 'hidden' }} className="border-r">
+          <div className="noise-overlay" />
+          <svg width="100%" height="100%" viewBox="0 0 800 600" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">
+            <defs>
+               <filter id="softGlow2" x="-20%" y="-20%" width="140%" height="140%">
+                 <feGaussianBlur stdDeviation="3" result="blur" />
+                 <feComposite in="SourceGraphic" in2="blur" operator="over" />
+               </filter>
+            </defs>
+
+            {/* Static Ghost Network */}
+            <path 
+              d="M 400 100 L 400 250 M 400 250 L 200 400 M 400 250 L 600 400 M 200 400 L 100 500 M 200 400 L 300 500 M 600 400 L 500 500 M 600 400 L 700 500"
+              fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="1"
+            />
+            
+            {/* Infinitely Looping Network Scan Traces */}
+            {[
+              { path: "M 400 100 L 400 250 L 200 400 L 100 500", duration: 3 },
+              { path: "M 400 100 L 400 250 L 600 400 L 700 500", duration: 3.5 },
+              { path: "M 400 100 L 400 250 L 200 400 L 300 500", duration: 4 }
+            ].map((route, i) => (
+               <motion.path 
+                 key={`scan-${i}`}
+                 d={route.path}
+                 fill="none" stroke="#8B5CF6" strokeWidth="1.5" filter="url(#softGlow2)"
+                 strokeDasharray="40 1000"
+                 animate={{ strokeDashoffset: [-100, 1000] }}
+                 transition={{ repeat: Infinity, duration: route.duration, ease: "linear", delay: i*1.2 }}
+               />
+            ))}
+
+            {/* Pulsating Nodes */}
+            {[
+              {x: 400, y: 100}, {x: 200, y: 400}, {x: 600, y: 400}, 
+              {x: 100, y: 500}, {x: 300, y: 500}, {x: 500, y: 500}, {x: 700, y: 500}
+            ].map((n, i) => (
+              <g key={`node-${i}`}>
+                {/* Core ring */}
+                <motion.circle 
+                  cx={n.x} cy={n.y} r="12" fill="#040405" stroke="rgba(255,255,255,0.2)" strokeWidth="1"
+                  animate={{ r: [12, 16, 12], strokeOpacity: [0.2, 0.5, 0.2] }}
+                  transition={{ repeat: Infinity, duration: 2 + (i*0.3), ease: "easeInOut" }}
+                />
+                {/* Inner dot */}
+                <motion.circle 
+                  cx={n.x} cy={n.y} r="4" fill="#fff" filter="url(#softGlow2)"
+                  animate={{ opacity: [0.4, 1, 0.4] }}
+                  transition={{ repeat: Infinity, duration: 1.5 + (i*0.2), ease: "easeInOut" }}
+                />
+                <motion.text 
+                  x={n.x + 20} y={n.y + 4} fill="var(--text-secondary)" fontSize="10" fontFamily="monospace"
+                  animate={{ opacity: [0.3, 0.8, 0.3] }}
+                  transition={{ repeat: Infinity, duration: 3, delay: i*0.1 }}
+                >
+                  NODE_{n.x}_{n.y}
+                </motion.text>
+              </g>
+            ))}
+
+         </svg>
+      </div>
+      
+      <div style={{ gridColumn: '8 / 13', padding: '15vh 4vw', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+         <motion.div 
+            initial={{ opacity: 0, y: 10 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
+            className="white-badge" style={{ marginBottom: '2vh' }}
+         >
+           ENGINE 02
+         </motion.div>
+         <motion.h2 
+           initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
+           className="large-type" style={{ fontSize: '3vw' }}
+         >
+           Structural Understanding
+         </motion.h2>
+         <motion.p 
+           initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.1 }}
+           className="sub-type" style={{ maxWidth: '100%' }}
+         >
+           Ground code generation purely in files, symbols, definitions, and precise dependencies. No more blind edits or hallucinations.
+         </motion.p>
+      </div>
+
     </section>
   );
 };

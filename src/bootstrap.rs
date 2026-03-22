@@ -333,6 +333,61 @@ pub fn bootstrap_code(kg: &mut KnowledgeGraph, config: &GraphocodeConfig) -> (us
 
         let imported_files = import_map.get(path_str.as_str());
 
+        // Handle "from X import *" — create edges to ALL public entities in X
+        let imports: Vec<String> = kg
+            .all_nodes()
+            .filter(|n| {
+                n.node_type == "Import"
+                    && matches!(&n.source, Source::CodeAnalysis { file }
+                        if file.trim_start_matches("./") == path_str.trim_start_matches("./"))
+            })
+            .map(|n| n.name.clone())
+            .collect();
+
+        for imp in &imports {
+            let first_line = imp.lines().next().unwrap_or("");
+            if first_line.contains("import *") || first_line.contains("import *") {
+                // Find which file this wildcard import resolves to
+                let module_name = extract_module_from_import(imp, path_str);
+                let resolved = package_map
+                    .get(&module_name)
+                    .cloned()
+                    .or_else(|| resolve_import_to_file(&module_name, path_str, &all_files_set));
+
+                if let Some(src_file) = resolved {
+                    // Create edges to all public entities in that file
+                    let public_entities: Vec<(String, u64)> = kg
+                        .all_nodes()
+                        .filter(|n| {
+                            let in_src = matches!(&n.source, Source::CodeAnalysis { file }
+                                if file.trim_start_matches("./") == src_file.trim_start_matches("./"));
+                            in_src
+                                && n.node_type != "File"
+                                && n.node_type != "Import"
+                                && !n.name.starts_with('_') // Skip private
+                        })
+                        .map(|n| (n.name.clone(), n.id))
+                        .collect();
+
+                    for (_name, target_id) in &public_entities {
+                        if file_node_id != 0 && file_node_id != *target_id {
+                            let edge = crate::model::Edge::new(
+                                0,
+                                file_node_id,
+                                *target_id,
+                                "uses_type".to_string(),
+                                1.0,
+                                Source::CodeAnalysis {
+                                    file: path_str.clone(),
+                                },
+                            );
+                            let _ = kg.add_edge(edge);
+                        }
+                    }
+                }
+            }
+        }
+
         for reference in references {
             let target_name = &reference.target_name;
             let suffix = format!(".{}", target_name);

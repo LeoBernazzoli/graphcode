@@ -1,85 +1,72 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { BrainCircuit, BookX, ShieldAlert, Cpu } from 'lucide-react';
 
 const Problem = () => {
-  const problems = [
-    {
-      num: "01",
-      title: "Context disappears",
-      desc: "Every new chat session starts from zero. You spend half your time re-explaining the architecture instead of writing code.",
-      icon: <BookX size={24} strokeWidth={1.5} />
-    },
-    {
-      num: "02",
-      title: "Decisions get forgotten",
-      desc: "Why was this pattern chosen? The AI doesn't remember the debate from last week. Context is lost between isolated prompts.",
-      icon: <BrainCircuit size={24} strokeWidth={1.5} />
-    },
-    {
-      num: "03",
-      title: "Changes become risky",
-      desc: "Without structural awareness, the AI breaks dependencies it can't see, shifting the burden of QA back to you.",
-      icon: <ShieldAlert size={24} strokeWidth={1.5} />
-    },
-    {
-      num: "04",
-      title: "Control is lost",
-      desc: "As the codebase grows, the AI workflow shifts from productive to fragile. You start fearing the next blind code generation.",
-      icon: <Cpu size={24} strokeWidth={1.5} />
-    }
-  ];
-
   return (
-    <section id="problem" className="section-pad" style={{ borderTop: '1px solid var(--border-color)', position: 'relative' }}>
-      <div className="container">
-        <div style={{ marginBottom: '80px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          <span className="label-mono">The Problem</span>
-          <motion.h2 
-            className="section-title text-gradient"
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-100px" }}
-          >
-            AI coding tools can write code. <br />
-            They still lose the plot.
-          </motion.h2>
-          <motion.p 
-            className="section-desc"
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-100px" }}
-            transition={{ delay: 0.1 }}
-            style={{ margin: 0 }}
-          >
-            They forget decisions, lose context across sessions, and edit files without really understanding the codebase. The bigger the project gets, the more fragile the workflow becomes.
-          </motion.p>
-        </div>
+    <section className="dynamic-section border-b sticky-wrapper">
+      
+      {/* Pinned Left Narrative */}
+      <div className="sticky-nav">
+         <div>
+           <div className="white-badge" style={{ marginBottom: '2vh' }}>THE CORE PROBLEM</div>
+           <h2 style={{ fontSize: '2vw', letterSpacing: '-0.03em', lineHeight: 1.2, color: 'var(--text-primary)' }}>
+             Context is lost across sessions.
+           </h2>
+         </div>
+         <div className="mono">↓ SCROLL</div>
+      </div>
 
-        {/* Linear style list instead of grid of boxes */}
-        <div className="linear-list">
-          {problems.map((prob, i) => (
+      {/* Floating Right Scroll Blocks */}
+      <div className="scroll-content">
+         
+         <div className="scroll-block">
             <motion.div 
-              key={i}
-              className="list-item"
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-50px" }}
-              transition={{ delay: i * 0.1 }}
+               initial={{ opacity: 0, x: -20 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true, margin: "-100px" }}
+               style={{ display: 'inline-block', marginBottom: '4vh' }}
+               className="mono crosshair"
             >
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '16px' }}>
-                  <span className="label-mono" style={{ opacity: 0.5 }}>{prob.num}</span>
-                  <div className="list-item-icon">{prob.icon}</div>
-                </div>
-                <h3>{prob.title}</h3>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center' }}>
-                <p>{prob.desc}</p>
-              </div>
+               01 / Context Loss
             </motion.div>
-          ))}
-        </div>
+            <motion.h3 
+               className="large-type" style={{ maxWidth: '40vw' }}
+               initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-100px" }}
+            >
+               They forget the <br /> decisions you made <br /> yesterday.
+            </motion.h3>
+         </div>
+
+         <div className="scroll-block">
+            <motion.div 
+               initial={{ opacity: 0, x: -20 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true, margin: "-100px" }}
+               style={{ display: 'inline-block', marginBottom: '4vh' }}
+               className="mono crosshair"
+            >
+               02 / Brittle Edits
+            </motion.div>
+            <motion.h3 
+               className="large-type" style={{ maxWidth: '40vw' }}
+               initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-100px" }}
+            >
+               They edit code <br /> without computing <br /> the blast radius.
+            </motion.h3>
+         </div>
+
+         <div className="scroll-block" style={{ borderBottom: 'none', background: 'var(--text-primary)' }}>
+            <motion.div 
+               initial={{ opacity: 0, x: -20 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true, margin: "-100px" }}
+               style={{ display: 'inline-block', marginBottom: '4vh', color: 'var(--bg-primary)' }}
+               className="mono crosshair"
+            >
+               03 / The Engine
+            </motion.div>
+            <motion.h3 
+               className="large-type" style={{ maxWidth: '40vw', color: 'var(--bg-primary)' }}
+               initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-100px" }}
+            >
+               We inject a deterministic <br /> memory map directly <br /> into your LLM.
+            </motion.h3>
+         </div>
+
       </div>
     </section>
   );

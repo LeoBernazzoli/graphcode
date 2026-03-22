@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dynamic Magnetic Wireframe - Complete</title>
+<style>
+  :root {
+    --col-width: calc(100vw / 12);
+  }
+
+  body { margin: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background: #F8F9FA; color: #111; -webkit-font-smoothing: antialiased; }
+  * { box-sizing: border-box; }
+
+  /* Blueprint Grid System */
+  body::before {
+    content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+    background-image: linear-gradient(90deg, rgba(0,0,0,0.05) 1px, transparent 1px);
+    background-size: var(--col-width) 100%;
+  }
+
+  /* Architectural Borders */
+  .border-b { border-bottom: 1px solid #111; }
+  .border-r { border-right: 1px solid #111; }
+
+  /* Typography */
+  .mono { font-family: 'SF Mono', monospace; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; }
+  .mega-type { font-size: 6vw; font-weight: 700; letter-spacing: -0.04em; line-height: 0.95; text-transform: uppercase; margin: 0; }
+  .large-type { font-size: 4vw; font-weight: 600; letter-spacing: -0.03em; line-height: 1.1; margin: 0; }
+  .sub-type { font-size: 1.5vw; font-weight: 400; line-height: 1.5; color: #555; max-width: 36vw; margin-top: 3vh; }
+
+  /* Hero Asymmetry */
+  .hero-split { display: flex; min-height: 100vh; border-bottom: 1px solid #111; }
+  .hero-left { flex: 1; display: flex; flex-direction: column; justify-content: center; padding: 0 4vw; border-right: 1px solid #111; position: relative; }
+  .hero-right-visual { flex: 1; background: #111; color: white; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; }
+
+  /* Grid Layouts */
+  .dynamic-section { position: relative; display: grid; grid-template-columns: repeat(12, 1fr); }
+  
+  /* Sticky Narrative */
+  .sticky-wrapper { min-height: 200vh; position: relative; }
+  .sticky-nav { grid-column: 1 / 4; position: sticky; top: 0; height: 100vh; padding: 10vh 2vw; display: flex; flex-direction: column; justify-content: space-between; border-right: 1px solid #111; }
+  .scroll-content { grid-column: 4 / 13; }
+  .scroll-block { min-height: 80vh; padding: 10vh 4vw; display: flex; flex-direction: column; justify-content: center; border-bottom: 1px solid #111; }
+
+  /* Structural UI */
+  .crosshair { position: relative; }
+  .crosshair::before, .crosshair::after { content: ""; position: absolute; background: #111; }
+  .crosshair::before { width: 20px; height: 1px; left: -10px; top: 50%; }
+  .crosshair::after { width: 1px; height: 20px; left: 50%; top: -10px; }
+
+</style>
+</head>
+<body>
+
+  <!-- ======================== HERO ======================== -->
+  <section class="hero-split">
+    <div class="hero-left">
+       <div class="mono" style="position: absolute; top: 4vh; left: 4vw;">AUTOCLAW 1.0</div>
+       <h1 class="mega-type">Stop <br> Working <br> Blindly.</h1>
+       <p class="sub-type">
+         AI coding tools don't understand your codebase without persistent memory and a structural AST graph.
+       </p>
+       <div style="margin-top: 5vh; display: flex; gap: 2vw; align-items: center;">
+          <div style="border: 1px solid #111; padding: 1vw 2vw; font-weight: bold; background: #111; color: #fff;">Get Started</div>
+          <div class="mono" style="border: 1px solid #111; padding: 1vw 2vw;">$ cargo install autoclaw</div>
+       </div>
+    </div>
+    <div class="hero-right-visual">
+       <div class="mono" style="opacity: 0.5;">[ 100VH SVG AST GRAPH ]</div>
+    </div>
+  </section>
+
+  <!-- ======================== THE PROBLEM (STICKY SCROLL) ======================== -->
+  <section class="dynamic-section border-b sticky-wrapper">
+    <div class="sticky-nav">
+       <div>
+         <div class="mono" style="margin-bottom: 2vh;">// The core problem</div>
+         <h2 style="font-size: 2vw; letter-spacing:-0.03em;">Context is lost across sessions.</h2>
+       </div>
+       <div class="mono">↓ SCROLL</div>
+    </div>
+    <div class="scroll-content">
+       <div class="scroll-block">
+          <div class="mono crosshair" style="margin-bottom: 2vh; display: inline-block;">01 / Context Loss</div>
+          <h3 class="large-type" style="max-width: 40vw;">They forget the decisions you made yesterday.</h3>
+       </div>
+       <div class="scroll-block">
+          <div class="mono crosshair" style="margin-bottom: 2vh; display: inline-block;">02 / Brittle Edits</div>
+          <h3 class="large-type" style="max-width: 40vw;">They edit files without impact analysis.</h3>
+       </div>
+       <div class="scroll-block" style="border-bottom: none; background: #111; color: #fff;">
+          <div class="mono crosshair" style="margin-bottom: 2vh; display: inline-block; color: #fff;">03 / The Engine</div>
+          <h3 class="large-type" style="max-width: 40vw; color: #fff;">We inject a deterministic memory map directly into your LLM.</h3>
+       </div>
+    </div>
+  </section>
+
+  <!-- ======================== THE SOLUTION (ASYMMETRICAL GRIDS) ======================== -->
+  <section class="dynamic-section border-b">
+     
+     <!-- Engine 01 -->
+     <div style="grid-column: 1 / 6; padding: 15vh 4vw;" class="border-b border-r">
+        <div class="mono" style="margin-bottom: 2vh;">ENGINE 01</div>
+        <h2 class="large-type" style="font-size: 3vw;">Persistent Memory Store</h2>
+        <p class="sub-type" style="max-width: 100%;">Keep track of project state across sessions and never start from zero again.</p>
+     </div>
+     <div style="grid-column: 6 / 13; background: #111; color: white; display: flex; align-items: center; justify-content: center; min-height: 70vh;" class="border-b">
+        <div class="mono" style="opacity: 0.5;">[ SVG: MEMORY CYLINDER PIPELINE ]</div>
+     </div>
+
+     <!-- Engine 02 (Reversed Symmetry) -->
+     <div style="grid-column: 1 / 8; background: #111; color: white; display: flex; align-items: center; justify-content: center; min-height: 70vh;" class="border-r">
+        <div class="mono" style="opacity: 0.5;">[ SVG: NODE DEPENDENCY IMPACT NETWORK ]</div>
+     </div>
+     <div style="grid-column: 8 / 13; padding: 15vh 4vw; display: flex; flex-direction: column; justify-content: center;">
+        <div class="mono" style="margin-bottom: 2vh;">ENGINE 02</div>
+        <h2 class="large-type" style="font-size: 3vw;">Structural Understanding</h2>
+        <p class="sub-type" style="max-width: 100%;">Ground generation purely in files, symbols, definitions, and precise dependencies.</p>
+     </div>
+  </section>
+
+  <!-- ======================== WORKFLOW (ASSEMBLY LINE) ======================== -->
+  <section class="border-b" style="padding: 15vh 4vw;">
+     <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 10vh; border-bottom: 1px solid #111; padding-bottom: 2vh;">
+       <h2 class="mega-type" style="font-size: 5vw;">The Workflow</h2>
+       <div class="mono">// CLI INTEGRATION</div>
+     </div>
+
+     <!-- 4-step Horizontal Sequence -->
+     <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 2vw;">
+        <div style="border-top: 2px solid #111; padding-top: 2vh;">
+           <div class="mono" style="margin-bottom: 1vh;">Step 01</div>
+           <h3 style="font-size: 1.2vw; font-family: monospace;">$ autoclaw init</h3>
+           <p class="sub-type" style="font-size: 1vw; max-width: 100%; margin-top: 1vh;">Indexes project into local .kg graph.</p>
+        </div>
+        <div style="border-top: 2px solid #111; padding-top: 2vh;">
+           <div class="mono" style="margin-bottom: 1vh;">Step 02</div>
+           <h3 style="font-size: 1.2vw; font-family: monospace;">$ autoclaw sync-rules</h3>
+           <p class="sub-type" style="font-size: 1vw; max-width: 100%; margin-top: 1vh;">Generates path-specific AI prompting constraints.</p>
+        </div>
+        <div style="border-top: 2px solid #111; padding-top: 2vh;">
+           <div class="mono" style="margin-bottom: 1vh;">Step 03</div>
+           <h3 style="font-size: 1.2vw; font-family: monospace;">$ autoclaw impact</h3>
+           <p class="sub-type" style="font-size: 1vw; max-width: 100%; margin-top: 1vh;">Validates blast-radius before code changes.</p>
+        </div>
+        <div style="border-top: 2px solid #111; padding-top: 2vh;">
+           <div class="mono" style="margin-bottom: 1vh;">Step 04</div>
+           <h3 style="font-size: 1.2vw; font-family: monospace;">$ autoclaw relevant</h3>
+           <p class="sub-type" style="font-size: 1vw; max-width: 100%; margin-top: 1vh;">Pulls targeted context for Claude/Codex instantly.</p>
+        </div>
+     </div>
+  </section>
+
+  <!-- ======================== CTA / CLOSING ======================== -->
+  <section style="background: #111; color: #fff; min-height: 80vh; padding: 15vh 4vw; display: flex; flex-direction: column; justify-content: center; align-items: center; border-bottom: 1vw solid #fff;">
+     <div class="mono" style="margin-bottom: 4vh; opacity: 0.5;">[ AUTOCLAW v1.0 / ALPHA ]</div>
+     <h1 class="mega-type" style="text-align: center; font-size: 7vw; line-height: 0.9;">Stop <br> Guessing.</h1>
+     
+     <div style="margin-top: 8vh; display: flex; gap: 2vw; align-items: center;">
+        <div style="border: 1px solid #fff; padding: 1.5vw 3vw; background: #fff; color: #111; font-weight: bold; font-size: 1.2vw;">
+           View on GitHub
+        </div>
+        <div class="mono" style="color: #fff; padding: 1.5vw 3vw; border: 1px solid rgba(255,255,255,0.2);">
+           Read Docs
+        </div>
+     </div>
+  </section>
+
+</body>
+</html>
