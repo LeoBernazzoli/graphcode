@@ -13,7 +13,7 @@ IMPORTANT: You extract ONLY semantic knowledge from conversations. Code structur
 
 You will receive:
 1. TRANSCRIPT: conversation text (parsed from JSONL)
-2. KG_EXISTING: semantic facts already in the knowledge graph (from `graphcode export`)
+2. KG_EXISTING: semantic facts already in the knowledge graph (from `chartcode export`)
 
 ## What to extract
 
@@ -56,7 +56,7 @@ Order facts chronologically. For each fact indicate approximate position in conv
 
 ## Output
 
-Produce valid JSON and pipe it to `graphcode reconcile`:
+Produce valid JSON and pipe it to `chartcode reconcile`:
 
 ```json
 {
@@ -80,5 +80,5 @@ Produce valid JSON and pipe it to `graphcode reconcile`:
 
 Then run:
 ```bash
-echo '<your_json>' | graphcode reconcile
+echo '<your_json>' | chartcode reconcile
 ```

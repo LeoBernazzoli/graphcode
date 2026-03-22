@@ -1,11 +1,11 @@
 {
-  "name": "graphcode",
+  "name": "chartcode",
   "description": "Knowledge graph for your codebase \u2014 gives Claude structural awareness of every function, class, field, and their dependencies. Prevents breaking code across files.",
   "version": "0.4.0",
   "author": {
     "name": "Leo Bernazzoli"
   },
-  "repository": "https://github.com/LeoBernazzoli/graphcode",
+  "repository": "https://github.com/LeoBernazzoli/chartcode",
   "license": "Apache-2.0",
   "keywords": [
     "knowledge-graph",

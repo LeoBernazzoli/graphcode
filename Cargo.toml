@@ -1,5 +1,5 @@
 [package]
-name = "graphcode"
+name = "chartcode"
 version = "0.4.0"
 edition = "2024"
 description = "Knowledge graph for your codebase — gives AI coding agents structural awareness"
@@ -37,5 +37,5 @@ pyo3 = { version = "0.24", features = ["extension-module"], optional = true }
 tempfile = "3"
 
 [[bin]]
-name = "graphcode"
+name = "chartcode"
 path = "src/main.rs"

@@ -1,5 +1,5 @@
 ---
-name: graphcode-query
+name: chartcode-query
 description: Query the knowledge graph about entities, decisions, or relationships in the project
 allowed-tools: Bash
 ---

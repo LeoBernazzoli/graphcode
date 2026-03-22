@@ -1,5 +1,5 @@
 <p align="center">
-  <h1 align="center">Graphcode</h1>
+  <h1 align="center">Chartcode</h1>
 </p>
 
 <p align="center">
@@ -8,7 +8,7 @@
 
 <p align="center">
   <a href="#the-problem">The Problem</a> &nbsp;&bull;&nbsp;
-  <a href="#what-graphcode-does">What It Does</a> &nbsp;&bull;&nbsp;
+  <a href="#what-chartcode-does">What It Does</a> &nbsp;&bull;&nbsp;
   <a href="#how-it-works">How It Works</a> &nbsp;&bull;&nbsp;
   <a href="#accuracy">Accuracy</a> &nbsp;&bull;&nbsp;
   <a href="#get-started">Get Started</a>
@@ -30,21 +30,21 @@ They don't know that the function they're renaming is called from 14 other files
 
 They write code in the dark, and you pay the price.
 
-## What Graphcode Does
+## What Chartcode Does
 
-Graphcode builds a **knowledge graph of your entire codebase** before your AI agent touches a single line.
+Chartcode builds a **knowledge graph of your entire codebase** before your AI agent touches a single line.
 
-Every function, class, field, import, type annotation, keyword argument, and re-export is mapped. Every cross-file dependency is tracked. When your agent is about to edit a file, Graphcode tells it exactly what will break.
+Every function, class, field, import, type annotation, keyword argument, and re-export is mapped. Every cross-file dependency is tracked. When your agent is about to edit a file, Chartcode tells it exactly what will break.
 
 No embeddings. No LLM calls. No cloud. Just deterministic code analysis powered by tree-sitter, running locally in milliseconds.
 
 ## How It Works
 
-Graphcode runs as a **Claude Code plugin** (Codex support coming). Three things happen:
+Chartcode runs as a **Claude Code plugin** (Codex support coming). Three things happen:
 
-**1. Bootstrap** &mdash; On first run, Graphcode parses every source file with tree-sitter and builds the dependency graph. A 900-file TypeScript + Python project takes about 10 seconds.
+**1. Bootstrap** &mdash; On first run, Chartcode parses every source file with tree-sitter and builds the dependency graph. A 900-file TypeScript + Python project takes about 10 seconds.
 
-**2. Path-specific rules** &mdash; For every file in your project, Graphcode generates a `.claude/rules/` file listing its entities, their reference counts, and which files depend on them. These rules load automatically when the AI opens that file.
+**2. Path-specific rules** &mdash; For every file in your project, Chartcode generates a `.claude/rules/` file listing its entities, their reference counts, and which files depend on them. These rules load automatically when the AI opens that file.
 
 **3. Live impact analysis** &mdash; Before every Edit or Write, a PreToolUse hook runs impact analysis in ~50ms. The AI sees which files will be affected before it makes the change.
 
@@ -85,8 +85,8 @@ Things your AI agent currently misses:
 
 ```
 /plugin marketplace add LeoBernazzoli/graphcode
-/plugin install graphcode
-/graphcode:start
+/plugin install chartcode
+/chartcode:start
 ```
 
 **As a standalone CLI:**
@@ -94,7 +94,7 @@ Things your AI agent currently misses:
 ```
 cargo install --path .
 cd your-project
-autoclaw init
+chartcode init
 ```
 
 That's it. The knowledge graph is built, rules are generated, and your AI agent now understands your codebase.

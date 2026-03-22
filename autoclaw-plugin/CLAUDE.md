@@ -7,9 +7,9 @@ Before modifying code: the PreToolUse hook automatically shows which files depen
 When working on a file: `.claude/rules/` has path-specific context that loads automatically with dependency counts.
 
 For manual queries:
-- `graphcode impact <entity>` — what depends on this entity
-- `graphcode explore <entity>` — navigate the knowledge graph
-- `graphcode stats` — overview of the codebase graph
+- `chartcode impact <entity>` — what depends on this entity
+- `chartcode explore <entity>` — navigate the knowledge graph
+- `chartcode stats` — overview of the codebase graph
 
 ## Compact Instructions
 Minimal summary: current task and last step only. One line.
