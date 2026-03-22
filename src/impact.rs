@@ -4,36 +4,53 @@ use crate::model::Source;
 /// Analyze the impact of modifying an entity.
 /// Returns markdown report of all references and breaking changes.
 pub fn impact_analysis(kg: &KnowledgeGraph, entity_name: &str, depth: usize) -> String {
-    // Exact match first (case-sensitive), then fallback to fuzzy lookup
-    let node = kg
+    // Find ALL nodes matching this name (there may be multiple, e.g. User in different files)
+    let matching_nodes: Vec<_> = kg
         .all_nodes()
-        .find(|n| n.name == entity_name)
-        .or_else(|| {
-            // Try with common prefixes: "Struct.field" pattern
-            kg.all_nodes().find(|n| n.name.ends_with(&format!(".{}", entity_name)) && n.node_type != "Import")
-        })
-        .or_else(|| kg.lookup(entity_name));
+        .filter(|n| n.name == entity_name && n.node_type != "File" && n.node_type != "Import")
+        .collect();
 
-    let node = match node {
-        Some(n) => n,
-        None => return format!("No entity found: {}", entity_name),
+    // Fallback: try suffix match (e.g. "password_hash" → "User.password_hash")
+    let matching_nodes = if matching_nodes.is_empty() {
+        let suffix = format!(".{}", entity_name);
+        kg.all_nodes()
+            .filter(|n| n.name.ends_with(&suffix) && n.node_type != "Import")
+            .collect()
+    } else {
+        matching_nodes
     };
 
-    let node_id = node.id;
-    let node_name = node.name.clone();
-    let mut output = format!("## Impact: {}\n\n", node_name);
+    // Fallback: fuzzy lookup
+    let matching_ids: Vec<u64> = if matching_nodes.is_empty() {
+        match kg.lookup(entity_name) {
+            Some(n) => vec![n.id],
+            None => return format!("No entity found: {}", entity_name),
+        }
+    } else {
+        matching_nodes.iter().map(|n| n.id).collect()
+    };
 
-    // Get all neighbors (direct references)
-    let neighbors = kg.neighbors(node_id);
-    if neighbors.is_empty() {
+    let display_name = matching_nodes.first().map(|n| n.name.clone()).unwrap_or_else(|| entity_name.to_string());
+    let mut output = format!("## Impact: {}\n\n", display_name);
+
+    // Get all neighbors across ALL matching nodes
+    let mut all_neighbors = Vec::new();
+    for node_id in &matching_ids {
+        all_neighbors.extend(kg.neighbors(*node_id));
+    }
+    // Deduplicate by node name + file
+    all_neighbors.sort_by(|a, b| a.node.name.cmp(&b.node.name));
+    all_neighbors.dedup_by(|a, b| a.node.name == b.node.name && a.relation_type == b.relation_type);
+
+    if all_neighbors.is_empty() {
         output.push_str("No references found.\n");
         return output;
     }
 
-    output.push_str(&format!("**References ({}):**\n", neighbors.len()));
+    output.push_str(&format!("**References ({}):**\n", all_neighbors.len()));
     let mut warnings: Vec<String> = Vec::new();
 
-    for n in &neighbors {
+    for n in &all_neighbors {
         let file_info = match &n.node.source {
             Source::CodeAnalysis { file } => file.clone(),
             _ => "semantic".into(),
@@ -54,10 +71,10 @@ pub fn impact_analysis(kg: &KnowledgeGraph, entity_name: &str, depth: usize) -> 
     // Depth > 1: follow indirect references
     if depth > 1 {
         let mut indirect: Vec<String> = Vec::new();
-        for n in &neighbors {
+        for n in &all_neighbors {
             let second_hop = kg.neighbors(n.node.id);
             for n2 in &second_hop {
-                if n2.node.id != node_id {
+                if !matching_ids.contains(&n2.node.id) {
                     let file_info = match &n2.node.source {
                         Source::CodeAnalysis { file } => file.clone(),
                         _ => "semantic".into(),

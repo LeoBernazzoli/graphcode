@@ -580,6 +580,65 @@ fn extract_ref_universal(
             }
         }
     }
+
+    // ── IMPORTED NAMES as UsesType references ──
+    // Python: "from models import User, APIKey" → UsesType for User and APIKey
+    // TS/JS: "import { User, Config } from './models'" → UsesType for User and Config
+    if kind == "import_from_statement" || kind == "import_statement" {
+        // Walk children to find imported identifiers
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            // Python: dotted_name or aliased_import inside import_from_statement
+            if child.kind() == "dotted_name" || child.kind() == "aliased_import" {
+                // For aliased_import, get the name (not the alias)
+                let name = if child.kind() == "aliased_import" {
+                    child.child_by_field_name("name")
+                        .map(|n| node_text(&n, source).to_string())
+                        .unwrap_or_default()
+                } else {
+                    node_text(&child, source).to_string()
+                };
+                // Only add if it looks like a type/class name (starts with uppercase)
+                // to avoid adding module names as references
+                if !name.is_empty() && name.chars().next().map(|c| c.is_uppercase()).unwrap_or(false) {
+                    refs.push(CodeReference {
+                        source_file: file.into(),
+                        source_line: node.start_position().row + 1,
+                        target_name: name,
+                        ref_type: RefType::UsesType,
+                    });
+                }
+            }
+            // TS/JS: import_specifier inside import_clause
+            if child.kind() == "import_specifier" {
+                let name = child.child_by_field_name("name")
+                    .map(|n| node_text(&n, source).to_string())
+                    .unwrap_or_else(|| node_text(&child, source).to_string());
+                if !name.is_empty() && name.len() >= 2 {
+                    refs.push(CodeReference {
+                        source_file: file.into(),
+                        source_line: node.start_position().row + 1,
+                        target_name: name,
+                        ref_type: RefType::UsesType,
+                    });
+                }
+            }
+        }
+    }
+    // TS/JS named imports in import_clause
+    if kind == "import_specifier" {
+        let name = node.child_by_field_name("name")
+            .map(|n| node_text(&n, source).to_string())
+            .unwrap_or_else(|| node_text(node, source).to_string());
+        if !name.is_empty() && name.len() >= 2 && !is_builtin(&name, style) {
+            refs.push(CodeReference {
+                source_file: file.into(),
+                source_line: node.start_position().row + 1,
+                target_name: name,
+                ref_type: RefType::UsesType,
+            });
+        }
+    }
 }
 
 fn is_builtin(name: &str, style: LangStyle) -> bool {
