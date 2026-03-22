@@ -1,5 +1,4 @@
 /target/
-Cargo.lock
 .venv/
 __pycache__/
 *.pyc
@@ -9,4 +8,17 @@ build/
 .DS_Store
 *.kg
 *.kg.tmp
+*.idx
 .env
+.claude/rules/
+.claude/settings.json
+.claude-plugin-bak/
+knowledge.kg
+knowledge.idx
+docs/
+examples/
+website/
+BETA_TESTER_GUIDE.md
+DESIGN.md
+graphocode.toml
+pyproject.toml
