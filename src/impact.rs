@@ -4,7 +4,17 @@ use crate::model::Source;
 /// Analyze the impact of modifying an entity.
 /// Returns markdown report of all references and breaking changes.
 pub fn impact_analysis(kg: &KnowledgeGraph, entity_name: &str, depth: usize) -> String {
-    let node = match kg.lookup(entity_name) {
+    // Exact match first (case-sensitive), then fallback to fuzzy lookup
+    let node = kg
+        .all_nodes()
+        .find(|n| n.name == entity_name)
+        .or_else(|| {
+            // Try with common prefixes: "Struct.field" pattern
+            kg.all_nodes().find(|n| n.name.ends_with(&format!(".{}", entity_name)) && n.node_type != "Import")
+        })
+        .or_else(|| kg.lookup(entity_name));
+
+    let node = match node {
         Some(n) => n,
         None => return format!("No entity found: {}", entity_name),
     };
