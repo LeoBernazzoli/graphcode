@@ -180,10 +180,11 @@ pub fn bootstrap_code(kg: &mut KnowledgeGraph, config: &GraphocodeConfig) -> (us
                     && (n.name == *target_name || n.name.ends_with(&suffix))
             });
 
-            // Tier 2: import-scoped — defined in a file we import
+            // Tier 2: import-scoped — defined in a file we import (or re-exported from)
             let tier2 = if tier1.is_none() {
                 if let Some(imp_files) = imported_files {
-                    kg.all_nodes().find(|n| {
+                    // Direct: entity defined in imported file
+                    let direct = kg.all_nodes().find(|n| {
                         let in_imported = matches!(&n.source, Source::CodeAnalysis { file } if {
                             let f = file.trim_start_matches("./");
                             imp_files.iter().any(|imp| imp.trim_start_matches("./") == f)
@@ -192,7 +193,36 @@ pub fn bootstrap_code(kg: &mut KnowledgeGraph, config: &GraphocodeConfig) -> (us
                             && n.node_type != "File"
                             && n.node_type != "Import"
                             && (n.name == *target_name || n.name.ends_with(&suffix))
-                    })
+                    });
+
+                    // If not found directly, follow re-exports (1 hop):
+                    // Check files imported BY our imported files
+                    if direct.is_some() {
+                        direct
+                    } else {
+                        let mut transitive_files = std::collections::HashSet::new();
+                        for imp_file in imp_files {
+                            if let Some(second_imports) = import_map.get(imp_file.as_str()) {
+                                for f2 in second_imports {
+                                    transitive_files.insert(f2.clone());
+                                }
+                            }
+                        }
+                        if !transitive_files.is_empty() {
+                            kg.all_nodes().find(|n| {
+                                let in_transitive = matches!(&n.source, Source::CodeAnalysis { file } if {
+                                    let f = file.trim_start_matches("./");
+                                    transitive_files.iter().any(|tf| tf.trim_start_matches("./") == f)
+                                });
+                                in_transitive
+                                    && n.node_type != "File"
+                                    && n.node_type != "Import"
+                                    && (n.name == *target_name || n.name.ends_with(&suffix))
+                            })
+                        } else {
+                            None
+                        }
+                    }
                 } else {
                     None
                 }
