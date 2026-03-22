@@ -4,7 +4,7 @@ version = "0.4.0"
 edition = "2024"
 description = "Knowledge graph for your codebase — gives AI coding agents structural awareness"
 license = "Apache-2.0"
-repository = "https://github.com/LeoBernazzoli/graphcode"
+repository = "https://github.com/LeoBernazzoli/chartcode"
 
 [lib]
 name = "autoclaw"

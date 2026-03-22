@@ -15,9 +15,9 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/LeoBernazzoli/graphcode/stargazers"><img src="https://img.shields.io/github/stars/LeoBernazzoli/graphcode?style=flat" alt="Stars"></a>
-  <a href="https://github.com/LeoBernazzoli/graphcode/blob/master/LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue" alt="License"></a>
-  <a href="https://github.com/LeoBernazzoli/graphcode"><img src="https://img.shields.io/badge/lang-Rust-orange" alt="Rust"></a>
+  <a href="https://github.com/LeoBernazzoli/chartcode/stargazers"><img src="https://img.shields.io/github/stars/LeoBernazzoli/chartcode?style=flat" alt="Stars"></a>
+  <a href="https://github.com/LeoBernazzoli/chartcode/blob/master/LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue" alt="License"></a>
+  <a href="https://github.com/LeoBernazzoli/chartcode"><img src="https://img.shields.io/badge/lang-Rust-orange" alt="Rust"></a>
 </p>
 
 ---
@@ -84,7 +84,7 @@ Things your AI agent currently misses:
 **As a Claude Code plugin:**
 
 ```
-/plugin marketplace add LeoBernazzoli/graphcode
+/plugin marketplace add LeoBernazzoli/chartcode
 /plugin install chartcode
 /chartcode:start
 ```

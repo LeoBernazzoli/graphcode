@@ -22,7 +22,7 @@ else
         *) echo "Chartcode: unsupported platform ${OS}/${ARCH}" >&2; exit 0 ;;
     esac
 
-    RELEASE_URL="https://github.com/LeoBernazzoli/graphcode/releases/latest/download/chartcode-${TARGET}"
+    RELEASE_URL="https://github.com/LeoBernazzoli/chartcode/releases/latest/download/chartcode-${TARGET}"
     mkdir -p "${PLUGIN_DATA}/bin"
 
     echo "Chartcode: installing binary..." >&2
@@ -34,7 +34,7 @@ else
         echo "Chartcode: could not download binary. Install manually:" >&2
         echo "  npm install -g chartcode" >&2
         echo "  or: cargo install chartcode" >&2
-        echo "  or: download from https://github.com/LeoBernazzoli/graphcode/releases" >&2
+        echo "  or: download from https://github.com/LeoBernazzoli/chartcode/releases" >&2
         exit 0
     fi
 fi
