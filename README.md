@@ -1,185 +1,251 @@
-<p align="center">
-  <h1 align="center">autoclaw</h1>
-  <p align="center"><strong>Document memory for AI agents.</strong></p>
-  <p align="center">Feed your documents. Your agent understands everything. No queries needed.</p>
-</p>
+# autoclaw
 
-<p align="center">
-  <a href="#quick-start">Quick Start</a> &bull;
-  <a href="#how-it-works">How It Works</a> &bull;
-  <a href="#python-sdk">Python SDK</a> &bull;
-  <a href="#cli">CLI</a> &bull;
-  <a href="DESIGN.md">Design Doc</a>
-</p>
+**AI coding tools don't understand your codebase.**
+
+Autoclaw is an open-source memory and code understanding layer for AI coding tools. It gives coding agents persistent project memory and structural awareness of the codebase, so they stop losing context and stop making blind changes.
+
+Designed to sit under Claude, Codex, Cursor, and similar AI coding workflows. Local-first. Powered by a persistent knowledge graph.
+
+[Quick Start](#quick-start) • [Why](#why-autoclaw) • [How It Works](#how-it-works) • [Current Workflow](#current-workflow) • [CLI](#cli) • [Python SDK](#python-sdk) • [Design Docs](#design-docs)
 
 ---
 
-**autoclaw** turns documents into a knowledge graph that AI agents can navigate like memory. Not chunks. Not embeddings. A structured brain with entities, relationships, and evidence — all traced back to the source.
+## Why Autoclaw
 
-- **No API keys needed** — your agent IS the LLM. autoclaw never calls external APIs.
-- **Single file** — everything persists in one `.kg` file. No databases. No servers.
-- **Built in Rust** — fast, embeddable, zero dependencies.
-- **Agent-first** — designed for Claude Code, Codex, OpenClaw, Antigravity, or any agent.
+Most AI coding tools can write code. They still fail in the same ways:
 
-## The Problem
+- They forget decisions after long sessions
+- They lose context across restarts and compaction
+- They edit code without understanding dependencies or blast radius
+- They force you to restate project context over and over
 
-RAG gives your AI chunks of text. It can't connect ideas across documents. It can't tell you *how* two concepts relate. It doesn't understand — it searches.
+Autoclaw is built to make those tools more reliable on real codebases.
 
-**autoclaw** builds a real knowledge graph with typed entities, validated relationships, and source evidence. Your agent doesn't search — it *navigates knowledge*.
+It does that with two internal engines:
+
+### 1. Memory Engine
+
+Persistent memory for project decisions, conversation history, and evolving project context.
+
+### 2. Code Understanding Engine
+
+Structural understanding of files, symbols, references, and change impact.
+
+Together, they give AI coding tools what they are usually missing: continuity and grounded code understanding.
+
+## What You Get
+
+- Better continuity across sessions
+- Less context loss
+- More grounded edits
+- Safer changes on growing codebases
+- Less repeated prompting and restating of project context
 
 ## Quick Start
 
+Autoclaw is still alpha. The most complete workflow today is the local CLI plus the Claude-oriented assets in [`autoclaw-plugin/`](./autoclaw-plugin), but the product direction is broader: a memory and code understanding layer for AI coding tools in general.
+
+### 1. Install the CLI
+
+From a local checkout:
+
 ```bash
-pip install autoclaw
+cargo install --path . --no-default-features
 ```
 
-```python
-from autoclaw import PyKnowledgeGraph as KnowledgeGraph
+If you want to run it without installing:
 
-kg = KnowledgeGraph("./my-brain.kg")
+```bash
+cargo run --no-default-features -- --help
+```
 
-# 1. Agent analyzes content → suggests ontology
-prompt = kg.analyze_content("your document text here...")
-# Agent processes the prompt, returns JSON
-kg.update_ontology(agent_response)
+### 2. Add a `graphocode.toml`
 
-# 2. Agent extracts entities and relations
-prompt = kg.prepare_extraction("your document text here...")
-# Agent processes the prompt, returns JSON
-report = kg.ingest(agent_response)
-# → {added: 12, merged: 3, rejected: 0, edges_added: 18, errors: []}
+Use the repo's default config or start with this:
 
-# 3. Navigate — no LLM needed
-node = kg.lookup("Marco Bianchi")
-neighbors = kg.neighbors("Marco Bianchi")
-path = kg.connect("Marco Bianchi", "Budget Q3")
-# → Marco Bianchi --[manages]--> Project Alpha --[has_budget]--> Budget Q3
+```toml
+[sources]
+code = ["**/*.rs", "**/*.py", "**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx", "**/*.go", "**/*.java", "**/*.cs"]
+conversations = true
+documents = []
 
-# 4. Save
-kg.save()
+[bootstrap]
+on_first_session = true
+snapshot_every = 20
+
+[extraction]
+threshold = 85
+budget = 2000
+model = "haiku"
+
+[impact]
+enabled = true
+depth = 2
+```
+
+### 3. Bootstrap the project
+
+```bash
+autoclaw init
+```
+
+This currently:
+
+- bootstraps code and project sources into a local `.kg`
+- builds a fast index for hook-time lookups
+- generates `.claude/rules/` from the graph
+
+`autoclaw init` is currently the high-level convenience path around bootstrap plus rule generation.
+
+### 4. Query the graph
+
+```bash
+autoclaw stats
+autoclaw explore lookup
+autoclaw impact lookup --depth 2
+autoclaw relevant "where is authentication state handled?" --budget 800
+autoclaw file-context src/main.rs --budget 800
 ```
 
 ## How It Works
 
-```
-┌──────────────────────────────────────────────────┐
-│           Your Agent (Claude/GPT/Llama)           │
-│         The agent IS the LLM. No API keys.        │
-├──────────────────────────────────────────────────┤
-│           autoclaw SDK                            │
-│  analyze_content() → ontology prompt              │
-│  prepare_extraction() → extraction prompt         │
-│  ingest() → validate, dedup, insert               │
-│  lookup/neighbors/follow/path → pure traversal    │
-│  remember() → agent memories as graph nodes       │
-├──────────────────────────────────────────────────┤
-│           Rust Core Engine                        │
-│  In-memory graph │ Entity resolver │ .kg file     │
-└──────────────────────────────────────────────────┘
-```
+Autoclaw is one product with two engines inside it.
 
-The SDK prepares structured prompts. Your agent (which already IS an LLM) processes them and returns JSON. The SDK validates, deduplicates entities, and builds the graph. Navigation is pure graph traversal — no LLM calls needed.
+### Memory Engine
 
-## Python SDK
+The memory side stores structured project context over time:
 
-### Ingestion
+- decisions
+- useful conversation history
+- technical facts
+- error resolutions
+- project-specific context that should survive session boundaries
 
-```python
-# Analyze content — agent suggests entity/relation types for the domain
-prompt = kg.analyze_content(text)
-kg.update_ontology(agent_response_json)
+The goal is not "store everything forever." The goal is to keep the right context alive so the next agent run starts from project reality instead of starting cold.
 
-# Extract — agent finds entities and relations
-prompt = kg.prepare_extraction(text)
-report = kg.ingest(agent_response_json)
+### Code Understanding Engine
 
-# With document source tracking
-report = kg.ingest_document(agent_response_json, "report.pdf", page=3)
+The code understanding side builds a graph of the codebase:
 
-# Agent memories
-prompt = kg.prepare_memory("Project Alpha was cancelled on March 15")
-kg.ingest_memory(agent_response_json)
-```
+- files
+- functions, methods, structs, classes, fields
+- references and cross-file dependencies
+- impact surface for a proposed change
 
-### Navigation
+This is what turns blind edits into informed edits.
 
-```python
-# Lookup by name or alias
-kg.lookup("Marco Bianchi")      # exact/alias match
-kg.lookup("M. Bianchi")         # alias works too
+### Under The Hood
 
-# Explore connections
-kg.neighbors("Marco Bianchi")              # all connections
-kg.neighbors_by_type("Marco Bianchi", "Project")  # filtered
-kg.follow("Marco Bianchi", "manages")      # specific relation
+Both engines feed the same local knowledge graph:
 
-# Find paths
-kg.path("Marco Bianchi", "Budget Q3")      # JSON with full path
-kg.connect("Marco Bianchi", "Budget Q3")   # readable string
+- persisted to a single `.kg` file
+- stored locally, no hosted service required
+- no database or server required
+- the core does not call external APIs on its own
+- queryable through CLI and Python bindings
+- designed to support hook-driven AI coding workflows
 
-# Explore (entity + all connections + evidence)
-kg.explore("Project Alpha")
+## Current Workflow
 
-# Overview
-kg.stats()     # {node_count, edge_count, document_count, ...}
-kg.topics()    # entities grouped by type
-kg.recent()    # latest additions
-```
+Today, the strongest workflow in this repo is:
 
-### Persistence
+1. Index a project with `autoclaw init` or `autoclaw bootstrap`
+2. Generate path-specific rules with `autoclaw sync-rules`
+3. Use impact analysis before changes with `autoclaw impact` or `autoclaw impact-from-diff`
+4. Reindex touched files with `autoclaw reindex`
+5. Pull targeted context with `autoclaw relevant` and `autoclaw file-context`
 
-```python
-kg = KnowledgeGraph("./brain.kg")  # loads existing or creates new
-kg.save()                          # persist to disk
-kg.export_json()                   # full graph as JSON
-```
+The repo also includes Claude-oriented hook and skill assets under [`autoclaw-plugin/`](./autoclaw-plugin).
 
 ## CLI
 
+### Core graph commands
+
 ```bash
-autoclaw stats                    # graph overview
-autoclaw topics                   # main knowledge clusters
-autoclaw explore "Marco Bianchi"  # entity + connections
-autoclaw connect "A" "B"          # find path between entities
-autoclaw recent                   # latest entities
-autoclaw export                   # full JSON export
+autoclaw stats
+autoclaw topics
+autoclaw explore <entity>
+autoclaw connect <a> <b>
+autoclaw recent
+autoclaw export
+```
+
+### Coding workflow commands
+
+```bash
+autoclaw init
+autoclaw bootstrap [--config graphocode.toml]
+autoclaw sync-rules
+autoclaw context [budget]
+autoclaw impact <entity> [--depth 2]
+autoclaw impact-from-diff
+autoclaw reindex <file_path>
+autoclaw relevant <query> [--budget N]
+autoclaw file-context <path> [--budget N]
+autoclaw monitor <transcript> [--threshold N] [--window N]
+autoclaw tick <transcript> [--snapshot-every N] [--threshold N] [--window N]
+```
+
+Set `AUTOCLAW_KG` to control where the graph is stored:
+
+```bash
+export AUTOCLAW_KG=./knowledge.kg
+```
+
+## Python SDK
+
+The repo still exposes the underlying knowledge graph engine as a Python SDK. That part of the project is useful on its own, but it is no longer the best top-level way to think about Autoclaw.
+
+Under the hood, the SDK prepares structured prompts, accepts agent-produced JSON, validates it, deduplicates entities, and persists the graph locally.
+
+```python
+from autoclaw import PyKnowledgeGraph as KnowledgeGraph
+
+kg = KnowledgeGraph("./brain.kg")
+
+# Agent suggests ontology and extraction output
+prompt = kg.analyze_content("your document text here...")
+kg.update_ontology(agent_response)
+
+prompt = kg.prepare_extraction("your document text here...")
+report = kg.ingest(agent_response)
+
+# Query the graph
+node = kg.lookup("Marco Bianchi")
+neighbors = kg.neighbors("Marco Bianchi")
+path = kg.connect("Marco Bianchi", "Budget Q3")
+
+kg.save()
 ```
 
 ## What Makes This Different
 
-| | RAG | GraphRAG | autoclaw |
-|---|---|---|---|
-| **Understanding** | Chunks | Naive triples | Typed ontology with validation |
-| **Cross-document** | No | Limited | Full entity resolution across docs |
-| **Evidence** | Lost | Partial | Every fact traced to source |
-| **Entity resolution** | None | None | Fuzzy matching + alias merge |
-| **Speed** | Python | Python | Rust core |
-| **Setup** | Vector DB + embeddings | LLM API + config | `pip install` + one file |
-| **API keys** | Required | Required | None (your agent is the LLM) |
+Autoclaw is not trying to be another coding agent.
 
-## Use Cases
+It is trying to become the missing layer under coding agents:
 
-- **Personal AI agent** — give your assistant memory across all your documents
-- **Enterprise knowledge** — onboarding, institutional knowledge, decision history
-- **Research** — connect papers, findings, citations across publications
-- **Code understanding** — map codebases, architectural decisions, past bugs
-- **Legal** — connect contracts, clauses, precedents
-- **Medical** — patient history, drug interactions, guidelines
+- memory that survives beyond one fragile session
+- code understanding that is grounded in real project structure
+- impact awareness before edits
+- local project context without constant prompt rebuilding
 
-All with the same SDK. Different documents, same brain.
+## Status
 
-## Roadmap
+Alpha, active development.
 
-- [x] Rust core engine (in-memory graph, single file persistence)
-- [x] Entity resolution (fuzzy matching, alias merge)
-- [x] Python SDK via PyO3
-- [x] CLI
-- [ ] PDF text extraction (built-in)
-- [ ] Chunking strategies
-- [ ] Graph visualization (DOT/Graphviz export)
-- [ ] Benchmark suite vs RAG/GraphRAG
-- [ ] Custom graph storage engine (V2)
-- [ ] Cloud API (V3)
+The project is in transition from a generic document-memory SDK toward a broader memory + code understanding product for AI coding tools. Today the repo includes:
+
+- a Rust knowledge graph core
+- local `.kg` persistence
+- a CLI for indexing, graph queries, impact analysis, and context lookup
+- a Python SDK for the underlying graph engine
+- Claude-oriented plugin assets and design work for deeper coding-tool integration
+
+## Design Docs
+
+- [Graphocode v2 design](./docs/superpowers/specs/2026-03-18-graphocode-v2-design.md)
+- [Claude Code plugin design](./docs/superpowers/specs/2026-03-16-autoclaw-claude-code-plugin-design.md)
+- [Original design document](./DESIGN.md)
 
 ## License
 

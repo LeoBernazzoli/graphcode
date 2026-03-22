@@ -1,0 +1,26 @@
+import React from 'react'
+import Navbar from './components/Navbar'
+import Hero from './components/Hero'
+import Problem from './components/Problem'
+import Solution from './components/Solution'
+import Outcome from './components/Outcome'
+import HowItWorks from './components/HowItWorks'
+import Closing from './components/Closing'
+
+function App() {
+  return (
+    <div className="app-wrapper">
+      <Navbar />
+      <main>
+        <Hero />
+        <Problem />
+        <Solution />
+        <Outcome />
+        <HowItWorks />
+      </main>
+      <Closing />
+    </div>
+  )
+}
+
+export default App

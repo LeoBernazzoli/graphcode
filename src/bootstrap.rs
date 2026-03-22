@@ -111,6 +111,137 @@ pub fn bootstrap_code(kg: &mut KnowledgeGraph, config: &GraphocodeConfig) -> (us
     let all_files_set: std::collections::HashSet<String> =
         file_list.iter().map(|(p, _)| p.clone()).collect();
 
+    // Build monorepo package map: @scope/name → directory entry point
+    // Scan for package.json files near code files
+    let mut package_map: std::collections::HashMap<String, String> =
+        std::collections::HashMap::new();
+
+    // Collect unique directories from code files, then check for package.json in each
+    let mut checked_dirs: std::collections::HashSet<String> = std::collections::HashSet::new();
+    for (path_str, _) in &file_list {
+        let mut dir = std::path::Path::new(path_str).parent();
+        while let Some(d) = dir {
+            let ds = d.to_string_lossy().to_string();
+            if checked_dirs.contains(&ds) {
+                break;
+            }
+            checked_dirs.insert(ds.clone());
+            let pkg_path = d.join("package.json");
+            let f = pkg_path.to_string_lossy().to_string();
+            if pkg_path.exists() {
+            if let Ok(content) = std::fs::read_to_string(&pkg_path) {
+                if let Ok(pkg) = serde_json::from_str::<serde_json::Value>(&content) {
+                    if let Some(name) = pkg.get("name").and_then(|n| n.as_str()) {
+                        let pkg_dir = std::path::Path::new(&f)
+                            .parent()
+                            .map(|p| p.to_string_lossy().to_string())
+                            .unwrap_or_default();
+
+                        // Find entry point: exports["."] or main or src/index.ts
+                        let entry = pkg
+                            .get("exports")
+                            .and_then(|e| {
+                                // exports["."] can be string or object
+                                e.get(".")
+                                    .and_then(|dot| {
+                                        dot.as_str().map(|s| s.to_string()).or_else(|| {
+                                            // { ".": { "import": "./src/index.ts" } }
+                                            dot.get("import")
+                                                .or_else(|| dot.get("default"))
+                                                .or_else(|| dot.get("require"))
+                                                .and_then(|v| v.as_str().map(|s| s.to_string()))
+                                        })
+                                    })
+                                    .or_else(|| e.as_str().map(|s| s.to_string()))
+                            })
+                            .or_else(|| {
+                                pkg.get("main").and_then(|m| m.as_str().map(|s| s.to_string()))
+                            })
+                            .unwrap_or_else(|| "src/index.ts".to_string());
+
+                        let entry_clean = entry.trim_start_matches("./");
+                        let pkg_dir_clean = pkg_dir.trim_start_matches("./");
+                        let entry_path = if pkg_dir_clean.is_empty() {
+                            format!("./{}", entry_clean)
+                        } else {
+                            format!("./{}/{}", pkg_dir_clean, entry_clean)
+                        };
+
+                        // Try to find the actual file
+                        let resolved = if all_files_set.contains(&entry_path) {
+                            Some(entry_path)
+                        } else {
+                            // Try common alternatives
+                            let base = entry_path.trim_end_matches(".js").trim_end_matches(".cjs").trim_end_matches(".mjs").trim_end_matches(".ts");
+                            // Also try src/ instead of dist/ (common in monorepos)
+                            let src_base = if pkg_dir_clean.is_empty() {
+                                "./src/index".to_string()
+                            } else {
+                                format!("./{}/src/index", pkg_dir_clean)
+                            };
+                            [".ts", ".tsx", ".js", "/index.ts", "/index.js"]
+                                .iter()
+                                .find_map(|ext| {
+                                    let candidate = format!("{}{}", base, ext);
+                                    if all_files_set.contains(&candidate) {
+                                        return Some(candidate);
+                                    }
+                                    // Try src/ fallback
+                                    let src_candidate = format!("{}{}", src_base, ext);
+                                    if all_files_set.contains(&src_candidate) {
+                                        return Some(src_candidate);
+                                    }
+                                    None
+                                })
+                        };
+
+                        if let Some(resolved_path) = resolved {
+                            package_map.insert(name.to_string(), resolved_path.clone());
+                            // Also handle subpath exports: @trpc/server/rpc → exports["./rpc"]
+                            if let Some(exports) = pkg.get("exports").and_then(|e| e.as_object()) {
+                                for (subpath, value) in exports {
+                                    if subpath == "." || subpath == "./package.json" {
+                                        continue;
+                                    }
+                                    let sub_entry = value
+                                        .as_str()
+                                        .map(|s| s.to_string())
+                                        .or_else(|| {
+                                            value
+                                                .get("import")
+                                                .or_else(|| value.get("default"))
+                                                .and_then(|v| v.as_str().map(|s| s.to_string()))
+                                        });
+                                    if let Some(sub) = sub_entry {
+                                        let sub_clean = sub.trim_start_matches("./");
+                                        let sub_path = if pkg_dir.is_empty() {
+                                            format!("./{}", sub_clean)
+                                        } else {
+                                            format!("./{}/{}", pkg_dir, sub_clean)
+                                        };
+                                        let sub_key = format!(
+                                            "{}/{}",
+                                            name,
+                                            subpath.trim_start_matches("./")
+                                        );
+                                        if all_files_set.contains(&sub_path) {
+                                            package_map.insert(sub_key, sub_path);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            } // if exists
+            dir = d.parent();
+        } // while dir
+    } // for file_list
+    if !package_map.is_empty() {
+        eprintln!("  Monorepo packages: {}", package_map.len());
+    }
+
     for (path_str, _code) in &file_list {
         // Find Import entities from this file
         let imports: Vec<String> = kg
@@ -131,6 +262,10 @@ pub fn bootstrap_code(kg: &mut KnowledgeGraph, config: &GraphocodeConfig) -> (us
             // TS/JS: "import { X } from './models'" → "./models"
             // Rust: "use crate::model::Node" → "model"
             let module_name = extract_module_from_import(imp, path_str);
+            // Try package map first (monorepo: @trpc/server → packages/server/src/index.ts)
+            if let Some(pkg_file) = package_map.get(&module_name) {
+                imported_files.insert(pkg_file.clone());
+            }
             if let Some(resolved) = resolve_import_to_file(&module_name, path_str, &all_files_set)
             {
                 imported_files.insert(resolved);
