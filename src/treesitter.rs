@@ -289,7 +289,7 @@ fn extract_entity_universal(
         LangStyle::Go => match kind {
             "function_declaration" => ("Function", true),
             "method_declaration" => ("Method", true),
-            "type_declaration" => ("Struct", true),
+            "type_spec" => ("Struct", true),
             "import_declaration" => ("Import", true),
             "const_declaration" => ("Const", true),
             _ => ("", false),
@@ -1743,6 +1743,25 @@ func (s *Server) Start() {
             "Should find function: {:?}", entities);
         assert!(entities.iter().any(|e| e.entity_type == "Method"),
             "Should find method: {:?}", entities);
+        assert!(entities.iter().any(|e| e.name == "Server" && e.entity_type == "Struct"),
+            "Should find struct type declaration: {:?}", entities);
+    }
+
+    #[test]
+    fn test_parse_file_go_type_declaration_name() {
+        let code = r#"
+package chi
+
+type ChainHandler struct {
+    Endpoint any
+}
+"#;
+        let (entities, _refs) = parse_file(code, "chain.go");
+        assert!(
+            entities.iter().any(|e| e.name == "ChainHandler" && e.entity_type == "Struct"),
+            "Should find Go type declaration name ChainHandler: {:?}",
+            entities
+        );
     }
 
     #[test]

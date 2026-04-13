@@ -1,4 +1,9 @@
 [[repositories]]
+name = "chi"
+url = "https://github.com/go-chi/chi.git"
+commit = "a54874f0e2f12647a19e82ee70dfa8185014100c"
+
+[[repositories]]
 name = "fastapi"
 url = "https://github.com/fastapi/fastapi.git"
 commit = "25a3697cedc6e7dfb84e93c8ff965801486f00f4"
@@ -7,6 +12,11 @@ commit = "25a3697cedc6e7dfb84e93c8ff965801486f00f4"
 name = "httpx"
 url = "https://github.com/encode/httpx.git"
 commit = "b5addb64f0161ff6bfe94c124ef76f6a1fba5254"
+
+[[repositories]]
+name = "ripgrep"
+url = "https://github.com/BurntSushi/ripgrep.git"
+commit = "4519153e5e461527f4bca45b042fff45c4ec6fb9"
 
 [[repositories]]
 name = "spring-petclinic"
