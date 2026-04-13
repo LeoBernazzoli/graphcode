@@ -1,0 +1,7 @@
+name = "chi-chainhandler"
+repo = "chi"
+entity = "ChainHandler"
+expected_files = [
+  "chain.go",
+  "tree.go",
+]

@@ -1,0 +1,8 @@
+name = "ripgrep-searchmode"
+repo = "ripgrep"
+entity = "SearchMode"
+expected_files = [
+  "crates/core/flags/hiargs.rs",
+  "crates/core/flags/lowargs.rs",
+  "crates/core/main.rs",
+]
